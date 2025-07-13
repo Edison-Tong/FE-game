@@ -14,11 +14,14 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
-      setMessage("Passwords do not match");
+      alert("Passwords do not match");
+      return;
+    }
+    if (username === "" || password === "") {
+      alert("Please enter both username and password");
       return;
     }
     try {
@@ -29,10 +32,9 @@ export default function Register() {
       });
 
       const data = await res.json();
-      setMessage(data.message);
     } catch (err) {
       console.error(err);
-      setMessage("Something went wrong");
+      alert("Something went wrong", err);
     }
   };
 
@@ -56,7 +58,6 @@ export default function Register() {
           secureTextEntry
         />
         <Button title="Create new user" onPress={handleRegister} />
-        <Text style={{ marginTop: 20, color: "white" }}>{message}</Text>
       </View>
     </TouchableWithoutFeedback>
   );
