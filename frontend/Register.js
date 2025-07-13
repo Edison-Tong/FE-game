@@ -8,16 +8,55 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
+import React, { useState } from "react";
 
 export default function Register() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match");
+      return;
+    }
+    try {
+      const res = await fetch("http://192.168.1.168:3000/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      setMessage(data.message);
+    } catch (err) {
+      console.error(err);
+      setMessage("Something went wrong");
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <Text style={styles.title}>Create a user</Text>
-        <TextInput style={styles.input} placeholder="username" />
-        <TextInput style={styles.input} placeholder="password" />
-        <TextInput style={styles.input} placeholder="confirm password" />
-        <Button title="Create new user" />
+        <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="confirm password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+        />
+        <Button title="Create new user" onPress={handleRegister} />
+        <Text style={{ marginTop: 20, color: "white" }}>{message}</Text>
       </View>
     </TouchableWithoutFeedback>
   );
