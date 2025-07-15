@@ -9,11 +9,13 @@ import {
   Keyboard,
 } from "react-native";
 import React, { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const navigation = useNavigation();
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
@@ -32,6 +34,7 @@ export default function Register() {
       });
 
       const data = await res.json();
+      navigation.navigate("HomeScreen");
     } catch (err) {
       console.error(err);
       alert("Something went wrong", err);

@@ -35,8 +35,7 @@ export default function Login() {
       console.log("Login result:", result);
 
       if (result === "Login ok") {
-        alert("Successfully logged in!");
-        // Navigate to home screen or set session/token
+        navigation.navigate("HomeScreen");
       } else {
         alert("Invalid username or password.");
       }
