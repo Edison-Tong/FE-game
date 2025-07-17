@@ -5,6 +5,7 @@ import Login from "./Login";
 import Register from "./Register";
 import HomeScreen from "./HomeScreen";
 import TeamViewScreen from "./TeamViewScreen";
+import CharCreation from "./CharCreation";
 
 const Stack = createNativeStackNavigator();
 
@@ -16,6 +17,7 @@ export default function App() {
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="TeamViewScreen" component={TeamViewScreen} />
+        <Stack.Screen name="CharCreation" component={CharCreation} />
       </Stack.Navigator>
     </NavigationContainer>
   );
