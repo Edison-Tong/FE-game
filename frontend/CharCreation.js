@@ -19,6 +19,38 @@ export default function CharCreation() {
   ];
   const moveAmount = { regular: 5, mage: 4 };
   const [statsView, setStatsView] = useState("base");
+  const initialBaseStats = {
+    Hlth: 12,
+    Str: 1,
+    Def: 2,
+    Mgk: 3,
+    Res: 4,
+    Spd: 5,
+    Skl: 6,
+    Knl: 7,
+    Lck: 8,
+  };
+  const [baseStats, setBaseStats] = useState(initialBaseStats);
+
+  const swordStats = {
+    "Hit%": 85,
+    Str: 2,
+    Def: 0,
+    Mgk: 0,
+    Res: 0,
+    Spd: 0,
+    Skl: 1,
+    Knl: 0,
+    Lck: 0,
+    Range: 1,
+  };
+
+  const handleChange = (key, delta) => {
+    setBaseStats((prev) => ({
+      ...prev,
+      [key]: Math.max(0, prev[key] + delta), // prevent negative stats
+    }));
+  };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -75,30 +107,32 @@ export default function CharCreation() {
             </View>
           </TouchableOpacity>
           {statsView === "base" ? (
-            <View>
+            <View style={styles.statsWrapper}>
               <View style={styles.baseStatsContainer}>
-                <Text>Base Stats</Text>
-                <Text style={styles.statsLabels}>Hlth</Text>
-                <Text style={styles.statsLabels}>Str</Text>
-                <Text style={styles.statsLabels}>Def</Text>
-                <Text style={styles.statsLabels}>Mgk</Text>
-                <Text style={styles.statsLabels}>Res</Text>
-                <Text style={styles.statsLabels}>Spd</Text>
-                <Text style={styles.statsLabels}>Skl</Text>
-                <Text style={styles.statsLabels}>Knl</Text>
-                <Text style={styles.statsLabels}>Lck</Text>
+                <Text style={styles.statsTitle}>Base Stats</Text>
+                {Object.entries(baseStats).map(([label, value]) => (
+                  <View key={label} style={styles.statRow}>
+                    <Text style={styles.statsLabel}>{label}</Text>
+                    <TouchableOpacity onPress={() => handleChange(label, -1)} style={styles.arrow}>
+                      <Text style={styles.arrowText}>◀</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.statsValue}>{value}</Text>
+                    <TouchableOpacity onPress={() => handleChange(label, 1)} style={styles.arrow}>
+                      <Text style={styles.arrowText}>▶</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
-              <View style={styles.baseAtkContainer}>
-                <Text>Base Attack</Text>
-                <Text style={styles.statsLabels}>Hlth</Text>
-                <Text style={styles.statsLabels}>Str</Text>
-                <Text style={styles.statsLabels}>Def</Text>
-                <Text style={styles.statsLabels}>Mgk</Text>
-                <Text style={styles.statsLabels}>Res</Text>
-                <Text style={styles.statsLabels}>Spd</Text>
-                <Text style={styles.statsLabels}>Skl</Text>
-                <Text style={styles.statsLabels}>Knl</Text>
-                <Text style={styles.statsLabels}>Lck</Text>
+
+              <View style={styles.weaponStatsContainer}>
+                <Text style={styles.statsTitle}>Base Attack</Text>
+                <Text style={styles.weaponName}>Sword</Text>
+                {Object.entries(swordStats).map(([label, value]) => (
+                  <View key={label} style={styles.statRow}>
+                    <Text style={styles.statsLabel}>{label}</Text>
+                    <Text style={styles.statsValue}>{value}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ) : statsView === "atk" ? (
@@ -151,7 +185,6 @@ const styles = StyleSheet.create({
     margin: 10,
     justifyContent: "center",
     alignItems: "center",
-    position: "relative", // optional, default
   },
   charName: {
     position: "absolute",
@@ -226,8 +259,8 @@ const styles = StyleSheet.create({
     left: "3%",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1, // Thickness of the border
-    borderColor: "black", // Border color
+    borderWidth: 1,
+    borderColor: "black",
   },
   atkStatsBtn: {
     position: "absolute",
@@ -238,8 +271,8 @@ const styles = StyleSheet.create({
     left: "33%",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1, // Thickness of the border
-    borderColor: "black", // Border color
+    borderWidth: 1,
+    borderColor: "black",
   },
   notPressed: {
     borderTopWidth: 2,
@@ -263,14 +296,70 @@ const styles = StyleSheet.create({
     borderRightColor: "#fff",
     backgroundColor: "#ccc",
   },
-  baseStatsContainer: {
+  statsWrapper: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 10,
+    width: "100%", // ensure full width is used
     position: "absolute",
+    top: "40%",
+  },
+  baseStatsContainer: {
     backgroundColor: "white",
+    borderRadius: 10,
+    padding: 10,
+    flex: 1,
+    marginRight: 5,
   },
-  baseAtkContainer: {
-    backgroundColor: "lightgrey",
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
   },
-  statsLabels: {
-    fontSize: 10,
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  statsLabel: {
+    width: 50,
+    fontSize: 16,
+  },
+  arrow: {
+    paddingHorizontal: 10,
+  },
+  arrowText: {
+    fontSize: 18,
+  },
+  statsValue: {
+    width: 30,
+    textAlign: "center",
+    fontSize: 16,
+  },
+  weaponStatsContainer: {
+    backgroundColor: "#f0f4ff",
+    borderRadius: 10,
+    padding: 10,
+    flex: 1,
+    marginLeft: 5,
+  },
+  weaponName: {
+    fontSize: 16,
+    fontStyle: "italic",
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  label: {
+    width: 80,
+    fontSize: 16,
+  },
+  value: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 10,
   },
 });
