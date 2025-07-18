@@ -45,6 +45,47 @@ export default function CharCreation() {
     Range: 1,
   };
 
+  const attacks = [
+    {
+      name: "Attack 1",
+      type: "Physical",
+      hit: 90,
+      stats: {
+        Hlth: 0,
+        Str: 3,
+        Def: 1,
+        Mgk: 0,
+        Res: 0,
+        Spd: 2,
+        Skl: 1,
+        Knl: 0,
+        Lck: 1,
+        Range: 1,
+      },
+      description: "A swift sword strike.",
+      uses: 5,
+    },
+    {
+      name: "Attack 2",
+      type: "Magic",
+      hit: 75,
+      stats: {
+        Hlth: 2,
+        Str: 0,
+        Def: 0,
+        Mgk: 4,
+        Res: 2,
+        Spd: 0,
+        Skl: 2,
+        Knl: 1,
+        Lck: 0,
+        Range: 2,
+      },
+      description: "A fiery blast that burns enemies.",
+      uses: 3,
+    },
+  ];
+
   const handleChange = (key, delta) => {
     setBaseStats((prev) => ({
       ...prev,
@@ -136,35 +177,23 @@ export default function CharCreation() {
               </View>
             </View>
           ) : statsView === "atk" ? (
-            <View>
-              <Text>Attack 1</Text>
-              <Text>Damage Type</Text>
-              <Text>Hit%</Text>
-              <Text>Str</Text>
-              <Text>Def</Text>
-              <Text>Mgk</Text>
-              <Text>Res</Text>
-              <Text>Spd</Text>
-              <Text>Skl</Text>
-              <Text>Knl</Text>
-              <Text>Lck</Text>
-              <Text>Range</Text>
-              <Text>Description of what the attack does</Text>
-              <Text>Uses:</Text>
-              <Text>Attack 2</Text>
-              <Text>Damage Type</Text>
-              <Text>Hlth</Text>
-              <Text>Str</Text>
-              <Text>Def</Text>
-              <Text>Mgk</Text>
-              <Text>Res</Text>
-              <Text>Spd</Text>
-              <Text>Skl</Text>
-              <Text>Knl</Text>
-              <Text>Lck</Text>
-              <Text>Range</Text>
-              <Text>Description of what the attack does</Text>
-              <Text>Uses:</Text>
+            <View style={styles.attackWrapper}>
+              {attacks.map((atk, index) => (
+                <View key={index} style={styles.attackContainer}>
+                  <Text style={styles.attackTitle}>{atk.name}</Text>
+                  <Text style={styles.attackText}>Damage Type: {atk.type}</Text>
+                  <Text style={styles.attackText}>Hit%: {atk.hit}</Text>
+
+                  {Object.entries(atk.stats).map(([label, value]) => (
+                    <Text key={label} style={styles.attackText}>
+                      {label}: {value}
+                    </Text>
+                  ))}
+
+                  <Text style={styles.attackText}>Description: {atk.description}</Text>
+                  <Text style={styles.attackText}>Uses: {atk.uses}</Text>
+                </View>
+              ))}
             </View>
           ) : null}
         </View>
@@ -361,5 +390,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginLeft: 10,
+  },
+  attackWrapper: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    top: "15%",
+  },
+  attackContainer: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 12,
+    margin: 8,
+    width: "48%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  attackTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 6,
+    color: "#333",
+  },
+  attackText: {
+    fontSize: 14,
+    color: "#444",
+    marginVertical: 2,
   },
 });
