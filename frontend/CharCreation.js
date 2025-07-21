@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
+import { weaponsData } from "./WeaponsData.js";
 
 import DropDownPicker from "react-native-dropdown-picker";
 
 export default function CharCreation() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [sizeValue, setSizeValue] = useState(null);
+  const [bonus, setBonus] = useState(0);
   const sizeItems = [
     { label: "1", value: 1 },
     { label: "2", value: 2 },
@@ -17,7 +19,10 @@ export default function CharCreation() {
     { label: "Regular", value: "regular" },
     { label: "Mage", value: "mage" },
   ];
-  const moveAmount = { regular: 5, mage: 4 };
+  const moveAmount = { regular: 5 + bonus, mage: 4 + bonus };
+  const [weaponValue, setWeaponValue] = useState(null);
+  const meleeWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "melee");
+  const magicWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "magick");
   const [statsView, setStatsView] = useState("base");
   const initialBaseStats = {
     Hlth: 12,
@@ -32,59 +37,17 @@ export default function CharCreation() {
   };
   const [baseStats, setBaseStats] = useState(initialBaseStats);
 
-  const swordStats = {
-    "Hit%": 85,
-    Str: 2,
-    Def: 0,
-    Mgk: 0,
-    Res: 0,
-    Spd: 0,
-    Skl: 1,
-    Knl: 0,
-    Lck: 0,
-    Range: 1,
-  };
+  useEffect(() => {
+    if (weaponValue === "wind") {
+      setBonus((prev) => prev + 1);
+    } else {
+      setBonus(0);
+    }
+  }, [weaponValue]);
 
-  const attacks = [
-    {
-      name: "Attack 1",
-      type: "Physical",
-      hit: 90,
-      stats: {
-        Hlth: 0,
-        Str: 3,
-        Def: 1,
-        Mgk: 0,
-        Res: 0,
-        Spd: 2,
-        Skl: 1,
-        Knl: 0,
-        Lck: 1,
-        Range: 1,
-      },
-      description: "A swift sword strike.",
-      uses: 5,
-    },
-    {
-      name: "Attack 2",
-      type: "Magic",
-      hit: 75,
-      stats: {
-        Hlth: 2,
-        Str: 0,
-        Def: 0,
-        Mgk: 4,
-        Res: 2,
-        Spd: 0,
-        Skl: 2,
-        Knl: 1,
-        Lck: 0,
-        Range: 2,
-      },
-      description: "A fiery blast that burns enemies.",
-      uses: 3,
-    },
-  ];
+  useEffect(() => {
+    setWeaponValue(null);
+  }, [typeValue]);
 
   const handleChange = (key, delta) => {
     setBaseStats((prev) => ({
@@ -164,16 +127,31 @@ export default function CharCreation() {
                   </View>
                 ))}
               </View>
-
               <View style={styles.weaponStatsContainer}>
                 <Text style={styles.statsTitle}>Base Attack</Text>
-                <Text style={styles.weaponName}>Sword</Text>
-                {Object.entries(swordStats).map(([label, value]) => (
-                  <View key={label} style={styles.statRow}>
-                    <Text style={styles.statsLabel}>{label}</Text>
-                    <Text style={styles.statsValue}>{value}</Text>
-                  </View>
-                ))}
+                <View style={styles.weapon}>
+                  <DropDownPicker
+                    open={openDropdown === "weapon"}
+                    placeholder={typeValue === null ? "Pick character type" : "pick a weapon"}
+                    value={weaponValue}
+                    items={typeValue === "mage" ? magicWeapons : meleeWeapons}
+                    setOpen={(isOpen) => setOpenDropdown(isOpen ? "weapon" : null)}
+                    setValue={setWeaponValue}
+                    zIndex={3000}
+                    zIndexInverse={1000}
+                    disabled={typeValue === null}
+                  />
+                </View>
+                {weaponValue === null ? (
+                  <Text style={styles.weaponName}>No weapon selected</Text>
+                ) : (
+                  Object.entries(weaponsData.weapons[weaponValue].stats).map(([label, value]) => (
+                    <View key={label} style={styles.statRow}>
+                      <Text style={styles.statsLabel}>{label}</Text>
+                      <Text style={styles.statsValue}>{value}</Text>
+                    </View>
+                  ))
+                )}
               </View>
             </View>
           ) : statsView === "atk" ? (

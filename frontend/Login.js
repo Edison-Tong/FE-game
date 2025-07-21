@@ -17,7 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    if (username === "T" && password === "T") {
+    if (username === "" && password === "") {
       navigation.navigate("HomeScreen");
       return;
     } //this is jsut for testing purposes without needing to go to the database
