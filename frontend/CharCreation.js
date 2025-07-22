@@ -5,7 +5,12 @@ import { weaponsData } from "./WeaponsData.js";
 import DropDownPicker from "react-native-dropdown-picker";
 
 export default function CharCreation() {
-  const [openDropdown, setOpenDropdown] = useState(null);
+  const [openSize, setOpenSize] = useState(false);
+  const [openType, setOpenType] = useState(false);
+  const [openWeapon, setOpenWeapon] = useState(false);
+  const [openAbility1, setOpenAbility1] = useState(false);
+  const [openAbility2, setOpenAbility2] = useState(false);
+
   const [sizeValue, setSizeValue] = useState(null);
   const [bonus, setBonus] = useState(0);
   const sizeItems = [
@@ -36,13 +41,24 @@ export default function CharCreation() {
     Lck: 8,
   };
   const [baseStats, setBaseStats] = useState(initialBaseStats);
+  const [ability1, setAbility1] = useState(null);
+  const [ability2, setAbility2] = useState(null);
+
+  const currentAbilities = weaponsData.weaponAbilities[weaponValue] || [];
+
+  const abilityOptions = currentAbilities.map((ability) => ({
+    label: ability.name,
+    value: ability.name,
+    disabled: ability.name === ability1 || ability.name === ability2,
+  }));
 
   useEffect(() => {
-    if (weaponValue === "wind") {
-      setBonus((prev) => prev + 1);
-    } else {
+    if (!weaponValue) {
       setBonus(0);
+      return;
     }
+
+    setBonus(weaponValue === "wind" ? 1 : 0);
   }, [weaponValue]);
 
   useEffect(() => {
@@ -72,11 +88,11 @@ export default function CharCreation() {
           <Text style={styles.charMove}>{moveAmount[typeValue]}</Text>
           <View style={styles.charSize}>
             <DropDownPicker
-              open={openDropdown === "size"}
+              open={openSize}
               placeholder="#"
               value={sizeValue}
               items={sizeItems}
-              setOpen={(isOpen) => setOpenDropdown(isOpen ? "size" : null)}
+              setOpen={setOpenSize}
               setValue={setSizeValue}
               zIndex={3000}
               zIndexInverse={1000}
@@ -84,11 +100,11 @@ export default function CharCreation() {
           </View>
           <View style={styles.charType}>
             <DropDownPicker
-              open={openDropdown === "type"}
+              open={openType}
               placeholder="Character Type"
               value={typeValue}
               items={typeItems}
-              setOpen={(isOpen) => setOpenDropdown(isOpen ? "type" : null)}
+              setOpen={setOpenType}
               setValue={setTypeValue}
               zIndex={3000}
               zIndexInverse={1000}
@@ -107,7 +123,7 @@ export default function CharCreation() {
             onPress={() => setStatsView("atk")}
           >
             <View>
-              <Text>Attack</Text>
+              <Text>Attacks</Text>
             </View>
           </TouchableOpacity>
           {statsView === "base" ? (
@@ -131,11 +147,11 @@ export default function CharCreation() {
                 <Text style={styles.statsTitle}>Base Attack</Text>
                 <View style={styles.weapon}>
                   <DropDownPicker
-                    open={openDropdown === "weapon"}
+                    open={openWeapon}
                     placeholder={typeValue === null ? "Pick character type" : "pick a weapon"}
                     value={weaponValue}
                     items={typeValue === "mage" ? magicWeapons : meleeWeapons}
-                    setOpen={(isOpen) => setOpenDropdown(isOpen ? "weapon" : null)}
+                    setOpen={setOpenWeapon}
                     setValue={setWeaponValue}
                     zIndex={3000}
                     zIndexInverse={1000}
@@ -156,22 +172,34 @@ export default function CharCreation() {
             </View>
           ) : statsView === "atk" ? (
             <View style={styles.attackWrapper}>
-              {attacks.map((atk, index) => (
-                <View key={index} style={styles.attackContainer}>
-                  <Text style={styles.attackTitle}>{atk.name}</Text>
-                  <Text style={styles.attackText}>Damage Type: {atk.type}</Text>
-                  <Text style={styles.attackText}>Hit%: {atk.hit}</Text>
-
-                  {Object.entries(atk.stats).map(([label, value]) => (
-                    <Text key={label} style={styles.attackText}>
-                      {label}: {value}
-                    </Text>
-                  ))}
-
-                  <Text style={styles.attackText}>Description: {atk.description}</Text>
-                  <Text style={styles.attackText}>Uses: {atk.uses}</Text>
-                </View>
-              ))}
+              <View style={styles.attackContainer}>
+                <DropDownPicker
+                  open={openAbility1}
+                  placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 1"}
+                  value={ability1}
+                  items={abilityOptions}
+                  setOpen={setOpenAbility1}
+                  setValue={setAbility1}
+                  zIndex={3000}
+                  zIndexInverse={1000}
+                  disabled={weaponValue === null}
+                  disabledItemLabelStyle={{ color: "gray" }}
+                />
+              </View>
+              <View style={styles.attackContainer}>
+                <DropDownPicker
+                  open={openAbility2}
+                  placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 2"}
+                  value={ability2}
+                  items={abilityOptions}
+                  setOpen={setOpenAbility2}
+                  setValue={setAbility2}
+                  zIndex={3000}
+                  zIndexInverse={1000}
+                  disabled={weaponValue === null}
+                  disabledItemLabelStyle={{ color: "gray" }}
+                />
+              </View>
             </View>
           ) : null}
         </View>
