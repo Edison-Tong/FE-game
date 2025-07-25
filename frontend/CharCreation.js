@@ -40,6 +40,7 @@ export default function CharCreation() {
     Knl: 7,
     Lck: 8,
   };
+  const attackStats = ["hit%", "Str", "Def", "Mgk", "Res", "Spd", "Skl", "Knl", "Lck", "range"];
   const [baseStats, setBaseStats] = useState(initialBaseStats);
   const [ability1, setAbility1] = useState(null);
   const [ability2, setAbility2] = useState(null);
@@ -51,6 +52,10 @@ export default function CharCreation() {
     value: ability.name,
     disabled: ability.name === ability1 || ability.name === ability2,
   }));
+  const [selectedAbilities, setSelectedAbilities] = useState({
+    ability1: null,
+    ability2: null,
+  });
 
   useEffect(() => {
     if (!weaponValue) {
@@ -71,6 +76,27 @@ export default function CharCreation() {
       [key]: Math.max(0, prev[key] + delta), // prevent negative stats
     }));
   };
+
+  useEffect(() => {
+    const updatedAbilities = {};
+
+    if (ability1 && weaponsData.weaponAbilities[weaponValue]) {
+      const found1 = weaponsData.weaponAbilities[weaponValue].find((ability) => ability.name === ability1);
+      updatedAbilities.ability1 = found1 || null;
+    }
+
+    if (ability2 && weaponsData.weaponAbilities[weaponValue]) {
+      const found2 = weaponsData.weaponAbilities[weaponValue].find((ability) => ability.name === ability2);
+      updatedAbilities.ability2 = found2 || null;
+    }
+
+    if (Object.keys(updatedAbilities).length > 0) {
+      setSelectedAbilities((prev) => ({
+        ...prev,
+        ...updatedAbilities,
+      }));
+    }
+  }, [ability1, ability2, weaponValue]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -185,6 +211,19 @@ export default function CharCreation() {
                   disabled={weaponValue === null}
                   disabledItemLabelStyle={{ color: "gray" }}
                 />
+                {ability1 === null || !selectedAbilities.ability1 ? (
+                  <Text style={styles.attackTitle}>No ability selected</Text>
+                ) : (
+                  attackStats.map((stat, index) => {
+                    const value = selectedAbilities.ability1[stat.toLowerCase()] ?? 0;
+                    return (
+                      <View key={index} style={styles.statRow}>
+                        <Text style={styles.statsLabel}>{stat}:</Text>
+                        <Text style={styles.statsValue}>{value}</Text>
+                      </View>
+                    );
+                  })
+                )}
               </View>
               <View style={styles.attackContainer}>
                 <DropDownPicker
@@ -199,6 +238,19 @@ export default function CharCreation() {
                   disabled={weaponValue === null}
                   disabledItemLabelStyle={{ color: "gray" }}
                 />
+                {ability2 === null || !selectedAbilities.ability2 ? (
+                  <Text style={styles.attackTitle}>No ability selected</Text>
+                ) : (
+                  attackStats.map((stat, index) => {
+                    const value = selectedAbilities.ability2[stat.toLowerCase()] ?? 0;
+                    return (
+                      <View key={index} style={styles.statRow}>
+                        <Text style={styles.statsLabel}>{stat}:</Text>
+                        <Text style={styles.statsValue}>{value}</Text>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </View>
           ) : null}

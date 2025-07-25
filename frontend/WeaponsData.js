@@ -36,69 +36,69 @@ export const weaponsData = {
       value: "gauntlets",
       type: "melee",
 
-      stats: { "hit%": 80, str: 2, def: 0, mgk: 0, res: 0, spd: 0, skl: 0, knl: 0, luck: 2, range: 1 },
+      stats: { "hit%": 80, str: 2, def: 0, mgk: 0, res: 0, spd: 0, skl: 0, knl: 0, lck: 2, range: 1 },
     },
     fire: {
       label: "Fire",
       value: "fire",
       type: "magick",
 
-      stats: { "hit%": 80, str: 0, def: 0, mgk: 4, res: 0, spd: 0, skl: 0, knl: 0, luck: 2, range: 1 },
+      stats: { "hit%": 80, str: 0, def: 0, mgk: 4, res: 0, spd: 0, skl: 0, knl: 0, lck: 2, range: 1 },
     },
     water: {
       label: "Water",
       value: "water",
       type: "magick",
-      stats: { "hit%": 85, str: 0, def: 0, mgk: 2, res: 0, spd: 0, skl: 1, knl: 0, luck: 2, range: 1 },
+      stats: { "hit%": 85, str: 0, def: 0, mgk: 2, res: 0, spd: 0, skl: 1, knl: 0, lck: 2, range: 1 },
     },
     earth: {
       label: "Earth",
       value: "earth",
       type: "magick",
-      stats: { "hit%": 75, str: 0, def: 2, mgk: 2, res: 1, spd: 0, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 75, str: 0, def: 2, mgk: 2, res: 1, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
     },
     lightning: {
       label: "Lightning",
       value: "lightning",
       type: "magick",
-      stats: { "hit%": 85, str: 0, def: 0, mgk: 2, res: 0, spd: 1, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 85, str: 0, def: 0, mgk: 2, res: 0, spd: 1, skl: 0, knl: 0, lck: 0, range: 1 },
     },
     grass: {
       label: "Grass",
       value: "grass",
       type: "magick",
-      stats: { "hit%": 85, str: 0, def: 1, mgk: 0, res: 2, spd: 0, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 85, str: 0, def: 1, mgk: 0, res: 2, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
     },
     aether: {
       label: "Aether",
       value: "aether",
       type: "magick",
-      stats: { "hit%": 90, str: 0, def: 0, mgk: 1, res: 0, spd: 0, skl: 0, knl: 1, luck: 0, range: 1 },
+      stats: { "hit%": 90, str: 0, def: 0, mgk: 1, res: 0, spd: 0, skl: 0, knl: 1, lck: 0, range: 1 },
     },
     wind: {
       label: "Wind",
       value: "wind",
       type: "magick",
-      stats: { "hit%": 80, str: 0, def: 0, mgk: 2, res: 0, spd: 0, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 80, str: 0, def: 0, mgk: 2, res: 0, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
     },
     light: {
       label: "Light",
       value: "light",
       type: "magick",
-      stats: { "hit%": 90, str: 0, def: 0, mgk: 0, res: 2, spd: 0, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 90, str: 0, def: 0, mgk: 0, res: 2, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
     },
     dark: {
       label: "Dark",
       value: "dark",
       type: "magick",
-      stats: { "hit%": 75, str: 0, def: 1, mgk: 3, res: 1, spd: 0, skl: 0, knl: 0, luck: 0, range: 1 },
+      stats: { "hit%": 75, str: 0, def: 1, mgk: 3, res: 1, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
       // Wind magick grants +1 MOVE
     },
     grey: {
       label: "Gray",
       value: "gray",
       type: "magick",
-      stats: { "hit%": 80, str: 0, def: 0, mgk: 1, res: 0, spd: 0, skl: 0, knl: 3, luck: 0, range: 1 },
+      stats: { "hit%": 80, str: 0, def: 0, mgk: 1, res: 0, spd: 0, skl: 0, knl: 3, lck: 0, range: 1 },
     },
   },
 
@@ -106,9 +106,9 @@ export const weaponsData = {
     sword: [
       {
         name: "Evasion",
-        hitChance: 80,
-        stength: 1,
-        luck: -2,
+        "hit%": 80,
+        str: 1,
+        lck: -2,
         range: 1,
         uses: 1,
         type: "Efficiency",
@@ -116,9 +116,9 @@ export const weaponsData = {
       },
       {
         name: "Sword Dance",
-        hitChance: 75,
-        stength: 2,
-        skill: 2,
+        "hit%": 75,
+        str: 2,
+        skl: 2,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -126,9 +126,9 @@ export const weaponsData = {
       },
       {
         name: "Tipper",
-        hitChance: 80,
-        stength: -1,
-        skill: 5,
+        "hit%": 80,
+        str: -1,
+        skl: 5,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -136,8 +136,8 @@ export const weaponsData = {
       },
       {
         name: "Crescent Slash",
-        hitChance: 80,
-        stength: -1,
+        "hit%": 80,
+        str: -1,
         range: 1,
         uses: 1,
         type: "Radial",
@@ -145,8 +145,8 @@ export const weaponsData = {
       },
       {
         name: "Foul Play",
-        hitChance: 80,
-        stength: 1,
+        "hit%": 80,
+        str: 1,
         range: 1,
         uses: 1,
         type: "Obscuring",
@@ -154,7 +154,7 @@ export const weaponsData = {
       },
       {
         name: "Gouge",
-        hitChance: 75,
+        "hit%": 75,
         range: 1,
         uses: 1,
         type: "Blinding",
@@ -162,8 +162,8 @@ export const weaponsData = {
       },
       {
         name: "Shadow Blade",
-        hitChance: 75,
-        stength: -1,
+        "hit%": 75,
+        str: -1,
         range: 1,
         uses: 1,
         type: "Maiming",
@@ -174,10 +174,10 @@ export const weaponsData = {
     axe: [
       {
         name: "Breaker",
-        hitChance: 70,
+        "hit%": 70,
         str: 3,
         spd: -1,
-        Luck: -2,
+        lck: -2,
         range: 1,
         uses: 1,
         type: "Efficiency",
@@ -185,7 +185,7 @@ export const weaponsData = {
       },
       {
         name: "Tomahawk",
-        hitChance: 70,
+        "hit%": 70,
         range: 2,
         uses: 1,
         type: "Damage",
@@ -193,7 +193,7 @@ export const weaponsData = {
       },
       {
         name: "Armor Cleaver",
-        hitChance: 70,
+        "hit%": 70,
         range: 1,
         uses: 1,
         type: "Piercing",
@@ -201,7 +201,7 @@ export const weaponsData = {
       },
       {
         name: "Rend",
-        hitChance: 70,
+        "hit%": 70,
         str: -1,
         range: 1,
         uses: 1,
@@ -210,7 +210,7 @@ export const weaponsData = {
       },
       {
         name: "Dismember",
-        hitChance: 75,
+        "hit%": 75,
         str: 1,
         range: 1,
         uses: 1,
@@ -219,7 +219,7 @@ export const weaponsData = {
       },
       {
         name: "Bludgeon",
-        hitChance: 70,
+        "hit%": 70,
         range: 1,
         uses: 1,
         type: "Injuring",
@@ -227,7 +227,7 @@ export const weaponsData = {
       },
       {
         name: "Ragnarok",
-        hitChance: 65,
+        "hit%": 65,
         str: 6,
         def: -1,
         spd: -1,
@@ -240,9 +240,9 @@ export const weaponsData = {
     dagger: [
       {
         name: "Acceleration",
-        hitChance: 85,
+        "hit%": 85,
         def: -1,
-        luck: -2,
+        lck: -2,
         range: 1,
         uses: 1,
         type: "Efficiency",
@@ -250,7 +250,7 @@ export const weaponsData = {
       },
       {
         name: "Throwing Knives",
-        hitChance: 80,
+        "hit%": 80,
         str: -1,
         range: 2,
         uses: 1,
@@ -259,7 +259,7 @@ export const weaponsData = {
       },
       {
         name: "Puncture",
-        hitChance: 80,
+        "hit%": 80,
         range: 1,
         uses: 1,
         type: "Piercing",
@@ -267,7 +267,7 @@ export const weaponsData = {
       },
       {
         name: "Flurry",
-        hitChance: 75,
+        "hit%": 75,
         str: -1,
         range: 1,
         uses: 1,
@@ -276,7 +276,7 @@ export const weaponsData = {
       },
       {
         name: "Pin",
-        hitChance: 85,
+        "hit%": 85,
         range: 1,
         uses: 1,
         type: "Immobalizing",
@@ -284,7 +284,7 @@ export const weaponsData = {
       },
       {
         name: "Stagnate",
-        hitChance: 85,
+        "hit%": 85,
         range: 1,
         uses: 1,
         type: "Slowing",
@@ -292,7 +292,7 @@ export const weaponsData = {
       },
       {
         name: "Blitz",
-        hitChance: 75,
+        "hit%": 75,
         def: -1,
         range: 1,
         uses: 1,
@@ -303,9 +303,9 @@ export const weaponsData = {
     lance: [
       {
         name: "Guard",
-        hitChance: 75,
+        "hit%": 75,
         str: 1,
-        luck: -2,
+        lck: -2,
         range: 1,
         uses: 1,
         type: "Efficiency",
@@ -313,7 +313,7 @@ export const weaponsData = {
       },
       {
         name: "Javelin",
-        hitChance: 75,
+        "hit%": 75,
         range: 2,
         uses: 1,
         type: "Damage",
@@ -321,7 +321,7 @@ export const weaponsData = {
       },
       {
         name: "Spear Sweep",
-        hitChance: 70,
+        "hit%": 70,
         str: -1,
         range: 1,
         uses: 1,
@@ -330,7 +330,7 @@ export const weaponsData = {
       },
       {
         name: "Run Through",
-        hitChance: 80,
+        "hit%": 80,
         str: 1,
         range: 1,
         uses: 1,
@@ -339,7 +339,7 @@ export const weaponsData = {
       },
       {
         name: "Shaft Check",
-        hitChance: 80,
+        "hit%": 80,
         str: -2,
         def: 6,
         range: 1,
@@ -349,7 +349,7 @@ export const weaponsData = {
       },
       {
         name: "Spell Spear",
-        hitChance: 80,
+        "hit%": 80,
         str: -2,
         res: 6,
         range: 1,
@@ -359,7 +359,7 @@ export const weaponsData = {
       },
       {
         name: "Gore",
-        hitChance: 75,
+        "hit%": 75,
         str: 1,
         range: 1,
         uses: 1,
@@ -370,9 +370,9 @@ export const weaponsData = {
     bow: [
       {
         name: "Precision",
-        hitChance: 85,
+        "hit%": 85,
         str: 1,
-        luck: -2,
+        lck: -2,
         range: 2,
         uses: 1,
         type: "Efficiency",
@@ -380,7 +380,7 @@ export const weaponsData = {
       },
       {
         name: "Snipe",
-        hitChance: 80,
+        "hit%": 80,
         str: 1,
         range: 3,
         uses: 1,
@@ -389,7 +389,7 @@ export const weaponsData = {
       },
       {
         name: "Deadeye",
-        hitChance: 100,
+        "hit%": 100,
         str: -1,
         range: 2,
         uses: 1,
@@ -398,7 +398,7 @@ export const weaponsData = {
       },
       {
         name: "Explosive Volley",
-        hitChance: 75,
+        "hit%": 75,
         range: 3, //hits adjacent enemies. Original range per Brandons sheet is 2-4
         uses: 1,
         type: "Meteor",
@@ -406,7 +406,7 @@ export const weaponsData = {
       },
       {
         name: "Hit and Run",
-        hitChance: 80,
+        "hit%": 80,
         str: -1,
         range: 2,
         uses: 1,
@@ -415,7 +415,7 @@ export const weaponsData = {
       },
       {
         name: "Tome Breaker",
-        hitChance: 80,
+        "hit%": 80,
         str: -1,
         res: -1,
         range: 2,
@@ -425,7 +425,7 @@ export const weaponsData = {
       },
       {
         name: "Poison Arrow",
-        hitChance: 75,
+        "hit%": 75,
         str: 2,
         range: 2,
         uses: 1,
@@ -436,7 +436,7 @@ export const weaponsData = {
     gauntlets: [
       {
         name: "Exploitation",
-        hitChance: 80,
+        "hit%": 80,
         str: 2,
         range: 1,
         uses: 1,
@@ -445,9 +445,9 @@ export const weaponsData = {
       },
       {
         name: "Dual Finger Jab",
-        hitChance: 75,
+        "hit%": 75,
         str: 1,
-        luck: 1,
+        lck: 1,
         range: 1,
         uses: 1,
         type: "Obscuring",
@@ -455,8 +455,8 @@ export const weaponsData = {
       },
       {
         name: "Vault",
-        hitChance: 75,
-        luck: 2,
+        "hit%": 75,
+        lck: 2,
         range: 1,
         uses: 1,
         type: "Radial",
@@ -464,9 +464,9 @@ export const weaponsData = {
       },
       {
         name: "Disarm",
-        hitChance: 75,
+        "hit%": 75,
         def: 4,
-        luck: 1,
+        lck: 1,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -474,9 +474,9 @@ export const weaponsData = {
       },
       {
         name: "Tome Kick",
-        hitChance: 75,
+        "hit%": 75,
         res: 4,
-        luck: 1,
+        lck: 1,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -484,9 +484,9 @@ export const weaponsData = {
       },
       {
         name: "Skull Swing",
-        hitChance: 80,
+        "hit%": 80,
         str: 1,
-        luck: 1,
+        lck: 1,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -494,18 +494,18 @@ export const weaponsData = {
       },
       {
         name: "Crit Fist",
-        hitChance: 60,
-        luck: 10,
+        "hit%": 60,
+        lck: 10,
         range: 1,
         uses: 1,
         type: "Damage",
-        effect: "An incredibly lucky strike, if it lands. ",
+        effect: "An incredibly lcky strike, if it lands. ",
       },
     ],
     fire: [
       {
         name: "Incinerate",
-        hitChance: 70,
+        "hit%": 70,
         def: -1,
         mgk: 7,
         res: -1,
@@ -517,7 +517,7 @@ export const weaponsData = {
       },
       {
         name: "Eruption",
-        hitChance: 75,
+        "hit%": 75,
         mgk: 2,
         range: 1,
         uses: 1,
@@ -526,7 +526,7 @@ export const weaponsData = {
       },
       {
         name: "Scorch",
-        hitChance: 80,
+        "hit%": 80,
         mgk: 1,
         range: 2, //1-2
         uses: 1,
@@ -537,7 +537,7 @@ export const weaponsData = {
     water: [
       {
         name: "Dive",
-        hitChance: 75,
+        "hit%": 75,
         mgk: -1,
         range: 1,
         uses: 1,
@@ -546,7 +546,7 @@ export const weaponsData = {
       },
       {
         name: "Torrent",
-        hitChance: 80,
+        "hit%": 80,
         mgk: -1,
         range: 1,
         uses: 1,
@@ -555,7 +555,7 @@ export const weaponsData = {
       },
       {
         name: "Ice Spear",
-        hitChance: 80,
+        "hit%": 80,
         mgk: 1,
         range: 2, //1-2
         uses: 1,
@@ -566,7 +566,7 @@ export const weaponsData = {
     earth: [
       {
         name: "Aegis",
-        hitChance: 70,
+        "hit%": 70,
         def: 4,
         mgk: -1,
         res: 4,
@@ -577,7 +577,7 @@ export const weaponsData = {
       },
       {
         name: "Quake",
-        hitChance: 75,
+        "hit%": 75,
         def: 1,
         mgk: -1,
         res: 1,
@@ -588,7 +588,7 @@ export const weaponsData = {
       },
       {
         name: "Crush",
-        hitChance: 75,
+        "hit%": 75,
         mgk: -1,
         range: 2, //1-2
         uses: 1,
@@ -599,7 +599,7 @@ export const weaponsData = {
     lightning: [
       {
         name: "Static spd",
-        hitChance: 70,
+        "hit%": 70,
         range: 1,
         uses: 1,
         type: "Brave",
@@ -607,7 +607,7 @@ export const weaponsData = {
       },
       {
         name: "Discharge",
-        hitChance: 80,
+        "hit%": 80,
         mgk: -1,
         range: 2,
         uses: 1,
@@ -616,7 +616,7 @@ export const weaponsData = {
       },
       {
         name: "Thunder",
-        hitChance: 80,
+        "hit%": 80,
         spd: 1,
         range: 2, //1-2
         uses: 1,
@@ -627,7 +627,7 @@ export const weaponsData = {
     grass: [
       {
         name: "Leech Life",
-        hitChance: 80,
+        "hit%": 80,
         range: 1,
         uses: 1,
         type: "Absorbtion",
@@ -635,7 +635,7 @@ export const weaponsData = {
       },
       {
         name: "Natures Grasp",
-        hitChance: 80,
+        "hit%": 80,
         mgk: -1,
         range: 2, //1-2
         uses: 1,
@@ -644,7 +644,7 @@ export const weaponsData = {
       },
       {
         name: "Pin Needle",
-        hitChance: 85,
+        "hit%": 85,
         range: 2, //1-2
         uses: 1,
         type: "Poisoning",
@@ -654,7 +654,7 @@ export const weaponsData = {
     aether: [
       {
         name: "Clarity",
-        hitChance: 100,
+        "hit%": 100,
         mgk: -2,
         range: 1,
         uses: 1,
@@ -663,7 +663,7 @@ export const weaponsData = {
       },
       {
         name: "Asteroid",
-        hitChance: 80,
+        "hit%": 80,
         range: 4, //2-4
         uses: 1,
         type: "Meteor",
@@ -671,7 +671,7 @@ export const weaponsData = {
       },
       {
         name: "Gravity",
-        hitChance: 85,
+        "hit%": 85,
         range: 2, //1-2
         uses: 1,
         type: "Crushing",
@@ -681,7 +681,7 @@ export const weaponsData = {
     wind: [
       {
         name: "Tornado",
-        hitChance: 75,
+        "hit%": 75,
         range: 1,
         uses: 1,
         type: "Damage",
@@ -689,7 +689,7 @@ export const weaponsData = {
       },
       {
         name: "Gust",
-        hitChance: 75,
+        "hit%": 75,
         mgk: -1,
         range: 1,
         uses: 1,
@@ -698,7 +698,7 @@ export const weaponsData = {
       },
       {
         name: "Static",
-        hitChance: 80,
+        "hit%": 80,
         range: 2, //1-2
         uses: 1,
         type: "Shocking",
@@ -708,7 +708,7 @@ export const weaponsData = {
     light: [
       {
         name: "Aura",
-        hitChance: 85,
+        "hit%": 85,
         mgk: -1,
         res: 6,
         range: 1,
@@ -718,7 +718,7 @@ export const weaponsData = {
       },
       {
         name: "Ostracism",
-        hitChance: 85,
+        "hit%": 85,
         mgk: -2,
         range: 2,
         uses: 1,
@@ -727,7 +727,7 @@ export const weaponsData = {
       },
       {
         name: "Pillar Of Light",
-        hitChance: 80,
+        "hit%": 80,
         mgk: 1,
         range: 2, //1-2
         uses: 1,
@@ -738,7 +738,7 @@ export const weaponsData = {
     dark: [
       {
         name: "Fluux",
-        hitChance: 70,
+        "hit%": 70,
         mgk: 7,
         spd: -1,
         range: 1,
@@ -748,7 +748,7 @@ export const weaponsData = {
       },
       {
         name: "Tentatio",
-        hitChance: 70,
+        "hit%": 70,
         range: 1,
         uses: 1,
         type: "Radial",
@@ -756,7 +756,7 @@ export const weaponsData = {
       },
       {
         name: "Lingua",
-        hitChance: 75,
+        "hit%": 75,
         range: 2, //1-2
         uses: 1,
         type: "Poisoning",
@@ -766,16 +766,16 @@ export const weaponsData = {
     gray: [
       {
         name: "Gamble of the Gods",
-        hitChance: 60,
-        luck: 11,
+        "hit%": 60,
+        lck: 11,
         range: 1,
         uses: 1,
         type: "Damage",
-        effect: "The gods of luck roll the dice",
+        effect: "The gods of lck roll the dice",
       },
       {
         name: "Fortuna's Choice",
-        hitChance: 75,
+        "hit%": 75,
         mgk: -2,
         range: 4,
         uses: 1,
@@ -784,7 +784,7 @@ export const weaponsData = {
       },
       {
         name: "Plight of the Pagan",
-        hitChance: 80,
+        "hit%": 80,
         mgk: -1,
         range: 2,
         uses: 1,
