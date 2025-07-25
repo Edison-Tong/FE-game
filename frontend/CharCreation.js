@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { weaponsData } from "./WeaponsData.js";
+import { useNavigation } from "@react-navigation/native";
 
 import DropDownPicker from "react-native-dropdown-picker";
 
 export default function CharCreation() {
+  const navigation = useNavigation();
   const [openSize, setOpenSize] = useState(false);
   const [openType, setOpenType] = useState(false);
   const [openWeapon, setOpenWeapon] = useState(false);
@@ -40,6 +42,7 @@ export default function CharCreation() {
     Knl: 7,
     Lck: 8,
   };
+
   const attackStats = ["hit%", "Str", "Def", "Mgk", "Res", "Spd", "Skl", "Knl", "Lck", "range"];
   const [baseStats, setBaseStats] = useState(initialBaseStats);
   const [ability1, setAbility1] = useState(null);
@@ -254,6 +257,9 @@ export default function CharCreation() {
               </View>
             </View>
           ) : null}
+          <TouchableOpacity style={styles.submitBtn} onPress={() => navigation.navigate("TeamViewScreen")}>
+            <Text>Submit</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableWithoutFeedback>
@@ -477,5 +483,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#444",
     marginVertical: 2,
+  },
+  submitBtn: {
+    backgroundColor: "skyblue",
+    position: "absolute",
+    bottom: 20,
+    padding: 10,
+    borderRadius: 10,
   },
 });
