@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { weaponsData } from "./WeaponsData.js";
 import { useNavigation } from "@react-navigation/native";
@@ -9,27 +9,66 @@ export default function CharCreation() {
   const navigation = useNavigation();
   const [openSize, setOpenSize] = useState(false);
   const [openType, setOpenType] = useState(false);
+  const [invalidFields, setInvalidFields] = useState([]);
+
   const [openWeapon, setOpenWeapon] = useState(false);
   const [openAbility1, setOpenAbility1] = useState(false);
   const [openAbility2, setOpenAbility2] = useState(false);
-
+  const [name, setName] = useState(null);
+  const [label, setLabel] = useState(null);
   const [sizeValue, setSizeValue] = useState(null);
   const [bonus, setBonus] = useState(0);
-  const sizeItems = [
-    { label: "1", value: 1 },
-    { label: "2", value: 2 },
-    { label: "3", value: 3 },
-    { label: "4", value: 4 },
-  ];
+  // const sizeItems = [
+  //   { label: "1", value: 1 },
+  //   { label: "2", value: 2 },
+  //   { label: "3", value: 3 },
+  //   { label: "4", value: 4 },
+  // ];
+  const sizeItems = useMemo(
+    () => [
+      { label: "1", value: 1 },
+      { label: "2", value: 2 },
+      { label: "3", value: 3 },
+      { label: "4", value: 4 },
+    ],
+    []
+  );
+
   const [typeValue, setTypeValue] = useState(null);
-  const typeItems = [
-    { label: "Regular", value: "regular" },
-    { label: "Mage", value: "mage" },
-  ];
+  // const typeItems = [
+  //   { label: "Regular", value: "regular" },
+  //   { label: "Mage", value: "mage" },
+  // ];
+  const typeItems = useMemo(
+    () => [
+      { label: "Regular", value: "regular" },
+      { label: "Mage", value: "mage" },
+    ],
+    []
+  );
+
   const moveAmount = { regular: 5 + bonus, mage: 4 + bonus };
   const [weaponValue, setWeaponValue] = useState(null);
-  const meleeWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "melee");
-  const magicWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "magick");
+
+  // const meleeWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "melee");
+  // const magicWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "magick");
+
+  const meleeWeapons = useMemo(
+    () =>
+      Object.entries(weaponsData.weapons)
+        .filter(([_, w]) => w.type === "melee")
+        .map(([key, w]) => ({ label: w.name ?? key, value: key })),
+    [weaponsData]
+  );
+
+  const magicWeapons = useMemo(
+    () =>
+      Object.entries(weaponsData.weapons)
+        .filter(([_, w]) => w.type === "magick")
+        .map(([key, w]) => ({ label: w.name ?? key, value: key })),
+    [weaponsData]
+  );
+
   const [statsView, setStatsView] = useState("base");
   const initialBaseStats = {
     Hlth: 12,
@@ -50,11 +89,20 @@ export default function CharCreation() {
 
   const currentAbilities = weaponsData.weaponAbilities[weaponValue] || [];
 
-  const abilityOptions = currentAbilities.map((ability) => ({
-    label: ability.name,
-    value: ability.name,
-    disabled: ability.name === ability1 || ability.name === ability2,
-  }));
+  // const abilityOptions = currentAbilities.map((ability) => ({
+  //   label: ability.name,
+  //   value: ability.name,
+  //   disabled: ability.name === ability1 || ability.name === ability2,
+  // }));
+  const abilityOptions = useMemo(() => {
+    const abilities = weaponsData.weaponAbilities[weaponValue] || [];
+    return abilities.map((a) => ({
+      label: a.name,
+      value: a.name, // primitive
+      disabled: a.name === ability1 || a.name === ability2,
+    }));
+  }, [weaponValue, ability1, ability2, weaponsData]);
+
   const [selectedAbilities, setSelectedAbilities] = useState({
     ability1: null,
     ability2: null,
@@ -101,12 +149,50 @@ export default function CharCreation() {
     }
   }, [ability1, ability2, weaponValue]);
 
+  const handleSubmit = async () => {
+    const missing = [];
+
+    if (!name) missing.push("name");
+    if (!label) missing.push("label");
+    if (!typeValue) missing.push("typeValue");
+    if (!sizeValue) missing.push("sizeValue");
+    if (!weaponValue) missing.push("weaponValue");
+    if (!ability1) missing.push("ability1");
+    if (!ability2) missing.push("ability2");
+
+    if (missing.length > 0) {
+      setInvalidFields(missing);
+      alert("Please fill in all fields");
+      return;
+    }
+
+    setInvalidFields([]); // clear once valid
+    alert("Character created successfully!");
+    navigation.navigate("TeamViewScreen");
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View key="char1" style={styles.container}>
         <View style={styles.charCard}>
-          <TextInput style={styles.charName} placeholder={"character name"} />
-          <TextInput style={styles.charLabel} placeholder={"character name"} />
+          <TextInput
+            style={[styles.charName, invalidFields.includes("name") && styles.invalidInput]}
+            placeholder={"character name"}
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              setInvalidFields((prev) => prev.filter((f) => f !== "name"));
+            }}
+          />
+          <TextInput
+            style={[styles.charLabel, invalidFields.includes("label") && styles.invalidInput]}
+            placeholder={"character label"}
+            value={label}
+            onChangeText={(text) => {
+              setLabel(text);
+              setInvalidFields((prev) => prev.filter((f) => f !== "label"));
+            }}
+          />
           <View style={styles.charImage}>
             <Text>Character Image</Text>
           </View>
@@ -115,7 +201,7 @@ export default function CharCreation() {
           <Text style={styles.charSizeLabel}>Size:</Text>
           <Text style={styles.charLvl}>1</Text>
           <Text style={styles.charMove}>{moveAmount[typeValue]}</Text>
-          <View style={styles.charSize}>
+          <View style={[styles.charSize, invalidFields.includes("sizeValue") && styles.invalidInput]}>
             <DropDownPicker
               open={openSize}
               placeholder="#"
@@ -123,11 +209,16 @@ export default function CharCreation() {
               items={sizeItems}
               setOpen={setOpenSize}
               setValue={setSizeValue}
+              onChangeValue={(val) => {
+                if (val) {
+                  setInvalidFields((prev) => prev.filter((f) => f !== "sizeValue"));
+                }
+              }}
               zIndex={3000}
               zIndexInverse={1000}
             />
           </View>
-          <View style={styles.charType}>
+          <View style={[styles.charType, invalidFields.includes("typeValue") && styles.invalidInput]}>
             <DropDownPicker
               open={openType}
               placeholder="Character Type"
@@ -135,6 +226,11 @@ export default function CharCreation() {
               items={typeItems}
               setOpen={setOpenType}
               setValue={setTypeValue}
+              onChangeValue={(val) => {
+                if (val) {
+                  setInvalidFields((prev) => prev.filter((f) => f !== "typeValue"));
+                }
+              }}
               zIndex={3000}
               zIndexInverse={1000}
             />
@@ -174,7 +270,7 @@ export default function CharCreation() {
               </View>
               <View style={styles.weaponStatsContainer}>
                 <Text style={styles.statsTitle}>Base Attack</Text>
-                <View style={styles.weapon}>
+                <View style={[styles.weapon, invalidFields.includes("weaponValue") && styles.invalidInput]}>
                   <DropDownPicker
                     open={openWeapon}
                     placeholder={typeValue === null ? "Pick character type" : "pick a weapon"}
@@ -182,6 +278,11 @@ export default function CharCreation() {
                     items={typeValue === "mage" ? magicWeapons : meleeWeapons}
                     setOpen={setOpenWeapon}
                     setValue={setWeaponValue}
+                    onChangeValue={(val) => {
+                      if (val) {
+                        setInvalidFields((prev) => prev.filter((f) => f !== "weaponValue"));
+                      }
+                    }}
                     zIndex={3000}
                     zIndexInverse={1000}
                     disabled={typeValue === null}
@@ -201,7 +302,7 @@ export default function CharCreation() {
             </View>
           ) : statsView === "atk" ? (
             <View style={styles.attackWrapper}>
-              <View style={styles.attackContainer}>
+              <View style={[styles.attackContainer, invalidFields.includes("ability1") && styles.invalidInput]}>
                 <DropDownPicker
                   open={openAbility1}
                   placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 1"}
@@ -209,6 +310,11 @@ export default function CharCreation() {
                   items={abilityOptions}
                   setOpen={setOpenAbility1}
                   setValue={setAbility1}
+                  onChangeValue={(val) => {
+                    if (val) {
+                      setInvalidFields((prev) => prev.filter((f) => f !== "ability1"));
+                    }
+                  }}
                   zIndex={3000}
                   zIndexInverse={1000}
                   disabled={weaponValue === null}
@@ -228,7 +334,7 @@ export default function CharCreation() {
                   })
                 )}
               </View>
-              <View style={styles.attackContainer}>
+              <View style={[styles.attackContainer, invalidFields.includes("ability2") && styles.invalidInput]}>
                 <DropDownPicker
                   open={openAbility2}
                   placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 2"}
@@ -236,6 +342,11 @@ export default function CharCreation() {
                   items={abilityOptions}
                   setOpen={setOpenAbility2}
                   setValue={setAbility2}
+                  onChangeValue={(val) => {
+                    if (val) {
+                      setInvalidFields((prev) => prev.filter((f) => f !== "ability2"));
+                    }
+                  }}
                   zIndex={3000}
                   zIndexInverse={1000}
                   disabled={weaponValue === null}
@@ -257,7 +368,7 @@ export default function CharCreation() {
               </View>
             </View>
           ) : null}
-          <TouchableOpacity style={styles.submitBtn} onPress={() => navigation.navigate("TeamViewScreen")}>
+          <TouchableOpacity style={styles.submitBtn} onPress={() => handleSubmit()}>
             <Text>Submit</Text>
           </TouchableOpacity>
         </View>
@@ -339,8 +450,7 @@ const styles = StyleSheet.create({
   },
   charType: {
     position: "absolute",
-    width: "40%",
-    height: "5%",
+    width: "45%",
     top: "23%",
   },
   baseStatsBtn: {
@@ -490,5 +600,9 @@ const styles = StyleSheet.create({
     bottom: 20,
     padding: 10,
     borderRadius: 10,
+  },
+  invalidInput: {
+    borderWidth: 2,
+    borderColor: "red",
   },
 });
