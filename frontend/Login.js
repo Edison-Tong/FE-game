@@ -9,12 +9,14 @@ import {
   Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { AuthContext } from "./AuthContext";
 
 export default function Login() {
   const navigation = useNavigation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const { setUser } = useContext(AuthContext);
 
   const handleLogin = async () => {
     if (username === "" && password === "") {
@@ -35,11 +37,10 @@ export default function Login() {
         },
         body: JSON.stringify({ username, password }), // ✅ login data
       });
-      console.log("test");
-      const result = await res.text(); // or res.json() if backend sends JSON
-      console.log("Login result:", result.includes("Login ok"));
+      const result = await res.json(); // or res.json() if backend sends JSON
 
-      if (result.includes("Login ok")) {
+      if (result.message === "Login ok") {
+        setUser({ id: result.id, username: result.username }); // 👈 store globally
         navigation.navigate("HomeScreen");
       } else {
         alert("Invalid username or password.");

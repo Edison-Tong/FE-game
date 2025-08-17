@@ -1,12 +1,14 @@
-import React from "react";
+import { useContext } from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { AuthContext } from "./AuthContext";
 
 export default function HomeScreen() {
+  const { user } = useContext(AuthContext);
   const navigation = useNavigation();
 
   const handleCreateTeam = () => {
-    console.log("Create a new team button pressed");
+    console.log(user.id);
   };
 
   return (
