@@ -27,7 +27,7 @@ export default function Register() {
       return;
     }
     try {
-      const res = await fetch("http://192.168.1.168:3000/register", {
+      const res = await fetch("http://192.168.1.109:3000/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

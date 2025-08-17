@@ -5,13 +5,17 @@ import { useNavigation } from "@react-navigation/native";
 export default function HomeScreen() {
   const navigation = useNavigation();
 
+  const handleCreateTeam = () => {
+    console.log("Create a new team button pressed");
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.teamBtn} onPress={() => console.log("test")}>
         <Text style={styles.buttonText}>Team 1</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.newTeamBtn} onPress={() => navigation.navigate("TeamViewScreen")}>
+      <TouchableOpacity style={styles.newTeamBtn} onPress={() => handleCreateTeam()}>
         <Text style={styles.buttonText}>Create a new team</Text>
       </TouchableOpacity>
     </View>

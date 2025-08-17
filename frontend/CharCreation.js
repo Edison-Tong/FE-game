@@ -18,12 +18,7 @@ export default function CharCreation() {
   const [label, setLabel] = useState(null);
   const [sizeValue, setSizeValue] = useState(null);
   const [bonus, setBonus] = useState(0);
-  // const sizeItems = [
-  //   { label: "1", value: 1 },
-  //   { label: "2", value: 2 },
-  //   { label: "3", value: 3 },
-  //   { label: "4", value: 4 },
-  // ];
+
   const sizeItems = useMemo(
     () => [
       { label: "1", value: 1 },
@@ -35,10 +30,7 @@ export default function CharCreation() {
   );
 
   const [typeValue, setTypeValue] = useState(null);
-  // const typeItems = [
-  //   { label: "Regular", value: "regular" },
-  //   { label: "Mage", value: "mage" },
-  // ];
+
   const typeItems = useMemo(
     () => [
       { label: "Regular", value: "regular" },
@@ -49,9 +41,6 @@ export default function CharCreation() {
 
   const moveAmount = { regular: 5 + bonus, mage: 4 + bonus };
   const [weaponValue, setWeaponValue] = useState(null);
-
-  // const meleeWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "melee");
-  // const magicWeapons = Object.values(weaponsData.weapons).filter((weapon) => weapon.type === "magick");
 
   const meleeWeapons = useMemo(
     () =>
@@ -89,11 +78,6 @@ export default function CharCreation() {
 
   const currentAbilities = weaponsData.weaponAbilities[weaponValue] || [];
 
-  // const abilityOptions = currentAbilities.map((ability) => ({
-  //   label: ability.name,
-  //   value: ability.name,
-  //   disabled: ability.name === ability1 || ability.name === ability2,
-  // }));
   const abilityOptions = useMemo(() => {
     const abilities = weaponsData.weaponAbilities[weaponValue] || [];
     return abilities.map((a) => ({
@@ -168,6 +152,15 @@ export default function CharCreation() {
 
     setInvalidFields([]); // clear once valid
     alert("Character created successfully!");
+    console.log("Name: ", name);
+    console.log("Label: ", label);
+    console.log("Move: ", moveAmount[typeValue]);
+    console.log("Size: ", sizeValue);
+    console.log("Type: ", typeValue);
+    console.log("Weapon: ", weaponValue);
+    console.log("Ablitity 1: ", ability1);
+    console.log("Ablitity 2: ", ability2);
+
     navigation.navigate("TeamViewScreen");
   };
 

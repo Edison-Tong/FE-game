@@ -28,18 +28,18 @@ export default function Login() {
     }
 
     try {
-      const res = await fetch("http://192.168.1.168:3000/login", {
+      const res = await fetch("http://192.168.1.109:3000/login", {
         method: "POST", // ✅ This is needed to send a body
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }), // ✅ login data
       });
-
+      console.log("test");
       const result = await res.text(); // or res.json() if backend sends JSON
-      console.log("Login result:", result);
+      console.log("Login result:", result.includes("Login ok"));
 
-      if (result === "Login ok") {
+      if (result.includes("Login ok")) {
         navigation.navigate("HomeScreen");
       } else {
         alert("Invalid username or password.");
