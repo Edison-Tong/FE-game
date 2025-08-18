@@ -19,7 +19,7 @@ export default function Login() {
   const { setUser } = useContext(AuthContext);
 
   const handleLogin = async () => {
-    if (username === "" && password === "") {
+    if (username === "asdf" && password === "") {
       navigation.navigate("HomeScreen");
       return;
     } //this is jsut for testing purposes without needing to go to the database
@@ -30,7 +30,7 @@ export default function Login() {
     }
 
     try {
-      const res = await fetch("http://192.168.1.109:3000/login", {
+      const res = await fetch("http://192.168.1.156:3000/login", {
         method: "POST", // ✅ This is needed to send a body
         headers: {
           "Content-Type": "application/json",

@@ -8,14 +8,16 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigation } from "@react-navigation/native";
+import { AuthContext } from "./AuthContext";
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const navigation = useNavigation();
+  const { setUser } = useContext(AuthContext);
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
@@ -27,14 +29,19 @@ export default function Register() {
       return;
     }
     try {
-      const res = await fetch("http://192.168.1.109:3000/register", {
+      const res = await fetch("http://192.168.1.156:3000/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-
       const data = await res.json();
-      navigation.navigate("HomeScreen");
+
+      if (data.id) {
+        setUser({ id: data.id, username: data.username });
+        navigation.navigate("HomeScreen");
+      } else {
+        alert("Something went wrong.");
+      }
     } catch (err) {
       console.error(err);
       alert("Something went wrong", err);

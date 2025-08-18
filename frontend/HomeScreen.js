@@ -8,6 +8,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
 
   const handleCreateTeam = () => {
+    console.log("ID");
     console.log(user.id);
   };
 

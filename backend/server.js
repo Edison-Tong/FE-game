@@ -22,10 +22,17 @@ app.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user
-    await pool.query("INSERT INTO users (username, password) VALUES ($1, $2)", [username, hashedPassword]);
+    // Insert new user AND return id + username
+    const newUser = await pool.query("INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username", [
+      username,
+      hashedPassword,
+    ]);
 
-    res.status(201).json({ message: "User registered" });
+    res.status(201).json({
+      message: "testing here",
+      id: newUser.rows[0].id,
+      username: newUser.rows[0].username,
+    });
   } catch (err) {
     console.error("Registration error:", err);
     res.status(500).json({ message: "Internal server error" });
