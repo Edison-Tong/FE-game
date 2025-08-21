@@ -71,5 +71,28 @@ app.listen(process.env.PORT, () => {
 
 // Create team
 app.post("/create-team", async (req, res) => {
-  const { teamName } = req.body;
+  const { teamName, userId } = req.body;
+
+  try {
+    // Check if the team name already exists for this user
+    const teamCheck = await pool.query("SELECT * FROM teams WHERE user_id = $1 AND team_name = $2", [userId, teamName]);
+
+    if (teamCheck.rows.length > 0) {
+      return res.status(409).json({ message: "You already have a team with this name" });
+    }
+
+    // Insert new team
+    const newTeam = await pool.query(
+      "INSERT INTO teams (user_id, team_name) VALUES ($1, $2) RETURNING id, team_name, user_id",
+      [userId, teamName]
+    );
+
+    res.status(201).json({
+      message: "Team created successfully",
+      team: newTeam.rows[0],
+    });
+  } catch (err) {
+    console.error("Error creating team:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
