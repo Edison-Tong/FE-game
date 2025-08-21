@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Button } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
@@ -9,6 +9,21 @@ export default function HomeScreen() {
 
   const [visible, setVisible] = useState(false);
   const [teamName, setTeamName] = useState("");
+  const [teams, setTeams] = useState([]);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await fetch("http://192.168.1.168:3000/get-teams?userId=" + user.id);
+        const data = await res.json();
+        setTeams(data.teams); // Example: [{ id:1, team_name:"Sharks" }, { id:2, team_name:"Dragons"}]
+      } catch (err) {
+        console.error("Error fetching teams:", err);
+      }
+    };
+
+    fetchTeams();
+  }, []);
 
   const handleCreateTeam = () => {
     setVisible(true); // open modal
@@ -50,9 +65,15 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.teamBtn} onPress={() => console.log("test")}>
-        <Text style={styles.buttonText}>Team 1</Text>
-      </TouchableOpacity>
+      {teams.map((team) => (
+        <TouchableOpacity
+          key={team.id}
+          style={styles.teamBtn}
+          onPress={() => console.log("Selected team:", team.team_name, team.id)}
+        >
+          <Text style={styles.buttonText}>{team.team_name}</Text>
+        </TouchableOpacity>
+      ))}
 
       <TouchableOpacity style={styles.newTeamBtn} onPress={handleCreateTeam}>
         <Text style={styles.buttonText}>Create a new team</Text>

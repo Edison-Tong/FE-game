@@ -96,3 +96,20 @@ app.post("/create-team", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+//get teams
+app.get("/get-teams", async (req, res) => {
+  const { userId } = req.query; // get userId from query string
+
+  try {
+    const result = await pool.query(
+      "SELECT id, team_name FROM teams WHERE user_id = $1",
+      [userId] // pass userId safely here
+    );
+
+    res.json({ teams: result.rows });
+  } catch (err) {
+    console.error("Error fetching teams:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
