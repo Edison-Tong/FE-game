@@ -15,7 +15,6 @@ app.listen(process.env.PORT, () => {
 // Register
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
-  console.log("test");
   try {
     // Check if username already exists
     const userCheck = await pool.query("SELECT * FROM users WHERE username = $1", [username]);

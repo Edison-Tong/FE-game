@@ -24,7 +24,7 @@ export default function HomeScreen() {
     };
 
     fetchTeams();
-  }, []);
+  }, [teamName]);
 
   const handleCreateTeam = () => {
     setVisible(true); // open modal
