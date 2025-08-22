@@ -11,6 +11,7 @@ import {
 import React, { useState, useContext } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
+import { BACKEND_URL } from "@env";
 
 export default function Register() {
   const [username, setUsername] = useState("");
@@ -29,7 +30,7 @@ export default function Register() {
       return;
     }
     try {
-      const res = await fetch("http://192.168.1.156:3000/register", {
+      const res = await fetch(`${BACKEND_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

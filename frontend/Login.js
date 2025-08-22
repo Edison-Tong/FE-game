@@ -11,6 +11,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useState, useContext } from "react";
 import { AuthContext } from "./AuthContext";
+import { BACKEND_URL } from "@env";
 
 export default function Login() {
   const navigation = useNavigation();
@@ -30,7 +31,7 @@ export default function Login() {
     }
 
     try {
-      const res = await fetch("http://192.168.1.168:3000/login", {
+      const res = await fetch(`${BACKEND_URL}/login`, {
         method: "POST", // ✅ This is needed to send a body
         headers: {
           "Content-Type": "application/json",

@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Button } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
+import { BACKEND_URL } from "@env";
 
 export default function HomeScreen() {
   const { user } = useContext(AuthContext);
@@ -14,7 +15,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-        const res = await fetch("http://192.168.1.168:3000/get-teams?userId=" + user.id);
+        const res = await fetch(`${BACKEND_URL}/get-teams?userId=` + user.id);
         const data = await res.json();
         setTeams(data.teams); // Example: [{ id:1, team_name:"Sharks" }, { id:2, team_name:"Dragons"}]
       } catch (err) {
@@ -36,7 +37,7 @@ export default function HomeScreen() {
     }
 
     try {
-      const res = await fetch("http://192.168.1.168:3000/create-team", {
+      const res = await fetch(`${BACKEND_URL}/create-team`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,10 +8,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.listen(process.env.PORT, () => {
+  console.log(`Server running on port ${process.env.PORT}`);
+});
+
 // Register
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
-
+  console.log("test");
   try {
     // Check if username already exists
     const userCheck = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
@@ -29,7 +33,7 @@ app.post("/register", async (req, res) => {
     ]);
 
     res.status(201).json({
-      message: "testing here",
+      message: "User Created",
       id: newUser.rows[0].id,
       username: newUser.rows[0].username,
     });
@@ -63,10 +67,6 @@ app.post("/login", async (req, res) => {
     console.error("Login error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
-});
-
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
 });
 
 // Create team
