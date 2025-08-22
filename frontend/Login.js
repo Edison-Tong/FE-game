@@ -57,7 +57,13 @@ export default function Login() {
       <View style={styles.container}>
         <Text style={styles.title}>Login</Text>
         <TextInput style={styles.input} placeholder="username" value={username} onChangeText={setUsername} />
-        <TextInput style={styles.input} placeholder="password" value={password} onChangeText={setPassword} />
+        <TextInput
+          style={styles.input}
+          placeholder="password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
         <Button title="Login" onPress={handleLogin} />
         <TouchableOpacity onPress={() => navigation.navigate("Register")}>
           <Text style={styles.newUserBtn}>Create a user </Text>
