@@ -64,14 +64,15 @@ export default function HomeScreen() {
     setVisible(false);
   };
 
+  const goToTeam = async (teamId) => {
+    console.log("Navigating to team:", teamId);
+    navigation.navigate("TeamViewScreen", { teamId });
+  };
+
   return (
     <View style={styles.container}>
       {teams.map((team) => (
-        <TouchableOpacity
-          key={team.id}
-          style={styles.teamBtn}
-          onPress={() => console.log("Selected team:", team.team_name, team.id)}
-        >
+        <TouchableOpacity key={team.id} style={styles.teamBtn} onPress={() => goToTeam(team.id)}>
           <Text style={styles.buttonText}>{team.team_name}</Text>
         </TouchableOpacity>
       ))}

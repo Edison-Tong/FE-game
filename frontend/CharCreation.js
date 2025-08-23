@@ -60,15 +60,15 @@ export default function CharCreation() {
 
   const [statsView, setStatsView] = useState("base");
   const initialBaseStats = {
-    Hlth: 12,
-    Str: 1,
-    Def: 2,
-    Mgk: 3,
+    Hlth: 4,
+    Str: 4,
+    Def: 4,
+    Mgk: 4,
     Res: 4,
-    Spd: 5,
-    Skl: 6,
-    Knl: 7,
-    Lck: 8,
+    Spd: 4,
+    Skl: 4,
+    Knl: 4,
+    Lck: 4,
   };
 
   const attackStats = ["hit%", "Str", "Def", "Mgk", "Res", "Spd", "Skl", "Knl", "Lck", "range"];
@@ -251,12 +251,20 @@ export default function CharCreation() {
                 {Object.entries(baseStats).map(([label, value]) => (
                   <View key={label} style={styles.statRow}>
                     <Text style={styles.statsLabel}>{label}</Text>
-                    <TouchableOpacity onPress={() => handleChange(label, -1)} style={styles.arrow}>
-                      <Text style={styles.arrowText}>◀</Text>
+                    <TouchableOpacity
+                      onPress={() => handleChange(label, -1)}
+                      style={styles.arrow}
+                      disabled={value <= 4}
+                    >
+                      <Text style={[styles.arrowText, value <= 4 && styles.disabledArrow]}>◀</Text>
                     </TouchableOpacity>
                     <Text style={styles.statsValue}>{value}</Text>
-                    <TouchableOpacity onPress={() => handleChange(label, 1)} style={styles.arrow}>
-                      <Text style={styles.arrowText}>▶</Text>
+                    <TouchableOpacity
+                      onPress={() => handleChange(label, 1)}
+                      style={styles.arrow}
+                      disabled={value >= 12 && label !== "Hlth"}
+                    >
+                      <Text style={[styles.arrowText, value >= 12 && label !== "Hlth" && styles.disabledArrow]}>▶</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -523,6 +531,9 @@ const styles = StyleSheet.create({
   },
   arrow: {
     paddingHorizontal: 10,
+  },
+  disabledArrow: {
+    color: "red",
   },
   arrowText: {
     fontSize: 18,

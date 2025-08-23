@@ -20,11 +20,6 @@ export default function Login() {
   const { setUser } = useContext(AuthContext);
 
   const handleLogin = async () => {
-    if (username === "asdf" && password === "") {
-      navigation.navigate("HomeScreen");
-      return;
-    } //this is jsut for testing purposes without needing to go to the database
-
     if (username === "" || password === "") {
       alert("Please enter both username and password");
       return;

@@ -2,9 +2,24 @@ import React from "react";
 import PagerView from "react-native-pager-view";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useEffect } from "react";
+import { BACKEND_URL } from "@env";
 
-export default function TeamViewScreen() {
+export default function TeamViewScreen(teamId) {
   const navigation = useNavigation();
+
+  useEffect(() => {
+    const fetchCharacters = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId.route.params.teamId);
+        const data = await res.json();
+        setTeams(data.teams); // Example: [{ id:1, team_name:"Sharks" }, { id:2, team_name:"Dragons"}]
+      } catch (err) {
+        console.error("Error fetching teams:", err);
+      }
+    };
+    fetchCharacters();
+  });
 
   return (
     <PagerView style={styles.pagerView} initialPage={0}>
@@ -19,7 +34,7 @@ export default function TeamViewScreen() {
       </View>
       <View key="char1" style={styles.container}>
         <View style={styles.charCard}>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => console.log(teamId.route.params.teamId)}>
             <View style={styles.addBtn}>
               <Text style={styles.addIcon}>test</Text>
             </View>
