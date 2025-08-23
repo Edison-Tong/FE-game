@@ -70,6 +70,7 @@ export default function CharCreation() {
     Knl: 4,
     Lck: 4,
   };
+  const [statsTotal, setStatsTotal] = useState(36);
 
   const attackStats = ["hit%", "Str", "Def", "Mgk", "Res", "Spd", "Skl", "Knl", "Lck", "range"];
   const [baseStats, setBaseStats] = useState(initialBaseStats);
@@ -110,6 +111,7 @@ export default function CharCreation() {
       ...prev,
       [key]: Math.max(0, prev[key] + delta), // prevent negative stats
     }));
+    setStatsTotal((prev) => prev + delta);
   };
 
   useEffect(() => {
@@ -247,7 +249,10 @@ export default function CharCreation() {
           {statsView === "base" ? (
             <View style={styles.statsWrapper}>
               <View style={styles.baseStatsContainer}>
-                <Text style={styles.statsTitle}>Base Stats</Text>
+                <Text style={styles.statsTitle}>
+                  Base Stats{" "}
+                  <Text style={[styles.statsTotal, statsTotal === 70 && styles.disabledArrow]}>{statsTotal}/70</Text>
+                </Text>
                 {Object.entries(baseStats).map(([label, value]) => (
                   <View key={label} style={styles.statRow}>
                     <Text style={styles.statsLabel}>{label}</Text>
@@ -262,9 +267,16 @@ export default function CharCreation() {
                     <TouchableOpacity
                       onPress={() => handleChange(label, 1)}
                       style={styles.arrow}
-                      disabled={value >= 12 && label !== "Hlth"}
+                      disabled={(value >= 12 && label !== "Hlth") || statsTotal === 70}
                     >
-                      <Text style={[styles.arrowText, value >= 12 && label !== "Hlth" && styles.disabledArrow]}>▶</Text>
+                      <Text
+                        style={[
+                          styles.arrowText,
+                          (value >= 12 && label !== "Hlth") || (statsTotal === 70 && styles.disabledArrow),
+                        ]}
+                      >
+                        ▶
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -519,6 +531,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 10,
+  },
+  statsTotal: {
+    fontSize: 15,
   },
   statRow: {
     flexDirection: "row",
