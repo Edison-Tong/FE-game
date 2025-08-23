@@ -251,7 +251,9 @@ export default function CharCreation() {
               <View style={styles.baseStatsContainer}>
                 <Text style={styles.statsTitle}>
                   Base Stats{" "}
-                  <Text style={[styles.statsTotal, statsTotal === 70 && styles.disabledArrow]}>{statsTotal}/70</Text>
+                  <Text style={[styles.statsTotal, (statsTotal === 70 && styles.statsMax) || styles.statsRemaining]}>
+                    {statsTotal}/70
+                  </Text>
                 </Text>
                 {Object.entries(baseStats).map(([label, value]) => (
                   <View key={label} style={styles.statRow}>
@@ -272,7 +274,7 @@ export default function CharCreation() {
                       <Text
                         style={[
                           styles.arrowText,
-                          (value >= 12 && label !== "Hlth") || (statsTotal === 70 && styles.disabledArrow),
+                          ((value >= 12 && label !== "Hlth") || statsTotal === 70) && styles.disabledArrow,
                         ]}
                       >
                         ▶
@@ -534,6 +536,12 @@ const styles = StyleSheet.create({
   },
   statsTotal: {
     fontSize: 15,
+  },
+  statsMax: {
+    color: "red",
+  },
+  statsRemaining: {
+    color: "green",
   },
   statRow: {
     flexDirection: "row",
