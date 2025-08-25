@@ -14,6 +14,7 @@ app.listen(process.env.PORT, () => {
 
 //wake up the server
 app.get("/ping", (req, res) => {
+  console.log("Ping received");
   res.json({ message: "pong" });
 });
 
@@ -114,6 +115,20 @@ app.get("/get-teams", async (req, res) => {
     res.json({ teams: result.rows });
   } catch (err) {
     console.error("Error fetching teams:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// get characters
+app.get("/get-characters", async (req, res) => {
+  const { teamId } = req.query;
+
+  try {
+    const result = await pool.query("SELECT * FROM characters WHERE team_id = $1", [teamId]);
+    console.log(result);
+    res.json({ characters: result.rows });
+  } catch (err) {
+    console.error("Error fetching characters:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

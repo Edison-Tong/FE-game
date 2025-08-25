@@ -2,41 +2,46 @@ import React from "react";
 import PagerView from "react-native-pager-view";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@env";
 
 export default function TeamViewScreen(teamId) {
   const navigation = useNavigation();
+  const [characters, setCharacters] = useState([]);
 
   useEffect(() => {
     const fetchCharacters = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId.route.params.teamId);
         const data = await res.json();
-        setTeams(data.teams); // Example: [{ id:1, team_name:"Sharks" }, { id:2, team_name:"Dragons"}]
+        console.log(data.characters);
+        setCharacters(data.characters);
       } catch (err) {
-        console.error("Error fetching teams:", err);
+        alert(err);
       }
     };
     fetchCharacters();
-  });
+  }, []);
 
   return (
     <PagerView style={styles.pagerView} initialPage={0}>
+      {characters.map((character, i) => (
+        <View key={i} style={styles.container}>
+          <View style={styles.charCard}>
+            <TouchableOpacity onPress={() => console.log(teamId.route.params.teamId)}>
+              <View style={styles.addBtn}>
+                {/* <Text style={styles.addIcon}>{characters[0].name}</Text> */}
+                <Text>{characters[i].name}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
       <View key="add" style={styles.container}>
         <View style={styles.charCard}>
           <TouchableOpacity onPress={() => navigation.navigate("CharCreation")}>
             <View style={styles.addBtn}>
               <Text style={styles.addIcon}>+</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View key="char1" style={styles.container}>
-        <View style={styles.charCard}>
-          <TouchableOpacity onPress={() => console.log(teamId.route.params.teamId)}>
-            <View style={styles.addBtn}>
-              <Text style={styles.addIcon}>test</Text>
             </View>
           </TouchableOpacity>
         </View>
