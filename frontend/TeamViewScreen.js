@@ -14,7 +14,7 @@ export default function TeamViewScreen(teamId) {
       try {
         const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId.route.params.teamId);
         const data = await res.json();
-        console.log(data.characters);
+        console.log(data.characters.length);
         setCharacters(data.characters);
       } catch (err) {
         alert(err);
@@ -23,20 +23,20 @@ export default function TeamViewScreen(teamId) {
     fetchCharacters();
   }, []);
 
-  return (
-    <PagerView style={styles.pagerView} initialPage={0}>
-      {characters.map((character, i) => (
-        <View key={i} style={styles.container}>
-          <View style={styles.charCard}>
-            <TouchableOpacity onPress={() => console.log(teamId.route.params.teamId)}>
-              <View style={styles.addBtn}>
-                {/* <Text style={styles.addIcon}>{characters[0].name}</Text> */}
-                <Text>{characters[i].name}</Text>
-              </View>
-            </TouchableOpacity>
+  const pages = characters.map((character, i) => (
+    <View key={i} style={styles.container}>
+      <View style={styles.charCard}>
+        <TouchableOpacity onPress={() => console.log(teamId)}>
+          <View style={styles.addBtn}>
+            <Text>{character.name}</Text>
           </View>
-        </View>
-      ))}
+        </TouchableOpacity>
+      </View>
+    </View>
+  ));
+
+  if (characters.length < 6) {
+    pages.push(
       <View key="add" style={styles.container}>
         <View style={styles.charCard}>
           <TouchableOpacity onPress={() => navigation.navigate("CharCreation")}>
@@ -46,6 +46,12 @@ export default function TeamViewScreen(teamId) {
           </TouchableOpacity>
         </View>
       </View>
+    );
+  }
+
+  return (
+    <PagerView style={styles.pagerView} initialPage={0}>
+      {pages}
     </PagerView>
   );
 }
