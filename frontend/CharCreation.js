@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { weaponsData } from "./WeaponsData.js";
 import { useNavigation } from "@react-navigation/native";
+import { BACKEND_URL } from "@env";
 
 import DropDownPicker from "react-native-dropdown-picker";
 
-export default function CharCreation() {
+export default function CharCreation(teamId) {
   const navigation = useNavigation();
   const [openSize, setOpenSize] = useState(false);
   const [openType, setOpenType] = useState(false);
@@ -88,10 +89,13 @@ export default function CharCreation() {
     }));
   }, [weaponValue, ability1, ability2, weaponsData]);
 
-  const [selectedAbilities, setSelectedAbilities] = useState({
-    ability1: null,
-    ability2: null,
-  });
+  const [selectedAbilities, setSelectedAbilities] = useState(
+    {
+      ability1: null,
+      ability2: null,
+    },
+    weaponValue
+  );
 
   useEffect(() => {
     if (!weaponValue) {
@@ -100,7 +104,7 @@ export default function CharCreation() {
     }
 
     setBonus(weaponValue === "wind" ? 1 : 0);
-  }, [weaponValue]);
+  });
 
   useEffect(() => {
     setWeaponValue(null);
@@ -151,19 +155,31 @@ export default function CharCreation() {
       alert("Please fill in all fields");
       return;
     }
+    try {
+      const res = await fetch(`${BACKEND_URL}/create-character`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          label,
+          sizeValue,
+          typeValue,
+          moveAmount,
+          weaponValue,
+          baseStats,
+          abilities: [ability1, ability2],
+          teamId: teamId.route.params.teamId,
+        }),
+      });
 
-    setInvalidFields([]); // clear once valid
-    alert("Character created successfully!");
-    console.log("Name: ", name);
-    console.log("Label: ", label);
-    console.log("Move: ", moveAmount[typeValue]);
-    console.log("Size: ", sizeValue);
-    console.log("Type: ", typeValue);
-    console.log("Weapon: ", weaponValue);
-    console.log("Ablitity 1: ", ability1);
-    console.log("Ablitity 2: ", ability2);
+      setInvalidFields([]); // clear once valid
+      alert("Character created successfully!");
 
-    navigation.navigate("TeamViewScreen");
+      navigation.navigate("TeamViewScreen");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong", err);
+    }
   };
 
   return (

@@ -14,7 +14,6 @@ export default function TeamViewScreen(teamId) {
       try {
         const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId.route.params.teamId);
         const data = await res.json();
-        console.log(data.characters.length);
         setCharacters(data.characters);
       } catch (err) {
         alert(err);
@@ -26,7 +25,7 @@ export default function TeamViewScreen(teamId) {
   const pages = characters.map((character, i) => (
     <View key={i} style={styles.container}>
       <View style={styles.charCard}>
-        <TouchableOpacity onPress={() => console.log(teamId)}>
+        <TouchableOpacity onPress={() => console.log(teamId.route.params)}>
           <View style={styles.addBtn}>
             <Text>{character.name}</Text>
           </View>
@@ -39,7 +38,7 @@ export default function TeamViewScreen(teamId) {
     pages.push(
       <View key="add" style={styles.container}>
         <View style={styles.charCard}>
-          <TouchableOpacity onPress={() => navigation.navigate("CharCreation")}>
+          <TouchableOpacity onPress={() => navigation.navigate("CharCreation", teamId.route.params)}>
             <View style={styles.addBtn}>
               <Text style={styles.addIcon}>+</Text>
             </View>

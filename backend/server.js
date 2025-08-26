@@ -125,10 +125,43 @@ app.get("/get-characters", async (req, res) => {
 
   try {
     const result = await pool.query("SELECT * FROM characters WHERE team_id = $1", [teamId]);
-    console.log(result);
     res.json({ characters: result.rows });
   } catch (err) {
     console.error("Error fetching characters:", err);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// create a character
+app.post("/create-character", async (req, res) => {
+  const { name, label, sizeValue, typeValue, moveAmount, weaponValue, baseStats, abilities, teamId } = req.body;
+  try {
+    const types = await pool.query("SELECT type FROM characters WHERE team_id = $1", [teamId]);
+
+    const newChar = await pool.query(
+      "INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)  RETURNING id, team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size",
+      [
+        teamId,
+        name,
+        label,
+        typeValue,
+        moveAmount[typeValue],
+        weaponValue,
+        abilities[0],
+        abilities[1],
+        baseStats["Hlth"],
+        baseStats["Str"],
+        baseStats["Def"],
+        baseStats["Mgk"],
+        baseStats["Res"],
+        baseStats["Spd"],
+        baseStats["Skl"],
+        baseStats["Knl"],
+        baseStats["Lck"],
+        sizeValue,
+      ]
+    );
+  } catch (err) {
+    console.log(err);
   }
 });
