@@ -1,18 +1,20 @@
 import React from "react";
 import PagerView from "react-native-pager-view";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@env";
 
-export default function TeamViewScreen(teamId) {
+export default function TeamViewScreen() {
   const navigation = useNavigation();
   const [characters, setCharacters] = useState([]);
+  const route = useRoute();
+  const { teamId } = route.params;
 
   useEffect(() => {
     const fetchCharacters = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId.route.params.teamId);
+        const res = await fetch(`${BACKEND_URL}/get-characters?teamId=` + teamId);
         const data = await res.json();
         setCharacters(data.characters);
       } catch (err) {
@@ -25,7 +27,7 @@ export default function TeamViewScreen(teamId) {
   const pages = characters.map((character, i) => (
     <View key={i} style={styles.container}>
       <View style={styles.charCard}>
-        <TouchableOpacity onPress={() => console.log(teamId.route.params)}>
+        <TouchableOpacity onPress={() => console.log(teamId)}>
           <View style={styles.addBtn}>
             <Text>{character.name}</Text>
           </View>
@@ -38,7 +40,7 @@ export default function TeamViewScreen(teamId) {
     pages.push(
       <View key="add" style={styles.container}>
         <View style={styles.charCard}>
-          <TouchableOpacity onPress={() => navigation.navigate("CharCreation", teamId.route.params)}>
+          <TouchableOpacity onPress={() => navigation.navigate("CharCreation", { teamId })}>
             <View style={styles.addBtn}>
               <Text style={styles.addIcon}>+</Text>
             </View>

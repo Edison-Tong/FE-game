@@ -161,6 +161,7 @@ app.post("/create-character", async (req, res) => {
         sizeValue,
       ]
     );
+    res.json({ newChar: newChar.rows[0] });
   } catch (err) {
     console.log(err);
   }

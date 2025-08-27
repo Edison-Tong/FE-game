@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { weaponsData } from "./WeaponsData.js";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { BACKEND_URL } from "@env";
 
 import DropDownPicker from "react-native-dropdown-picker";
 
-export default function CharCreation(teamId) {
+export default function CharCreation() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { teamId } = route.params;
   const [openSize, setOpenSize] = useState(false);
   const [openType, setOpenType] = useState(false);
   const [invalidFields, setInvalidFields] = useState([]);
@@ -168,16 +170,15 @@ export default function CharCreation(teamId) {
           weaponValue,
           baseStats,
           abilities: [ability1, ability2],
-          teamId: teamId.route.params.teamId,
+          teamId,
         }),
       });
 
       setInvalidFields([]); // clear once valid
       alert("Character created successfully!");
 
-      navigation.navigate("TeamViewScreen");
+      navigation.navigate("TeamViewScreen", { teamId });
     } catch (err) {
-      console.error(err);
       alert("Something went wrong", err);
     }
   };
