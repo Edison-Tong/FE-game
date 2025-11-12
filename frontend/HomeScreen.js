@@ -65,7 +65,6 @@ export default function HomeScreen() {
   };
 
   const goToTeam = async (teamId) => {
-    console.log(teamId);
     navigation.navigate("TeamViewScreen", { teamId });
   };
 

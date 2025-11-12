@@ -24,7 +24,6 @@ export default function Login() {
       alert("Please enter both username and password");
       return;
     }
-
     try {
       const res = await fetch(`${BACKEND_URL}/login`, {
         method: "POST", // ✅ This is needed to send a body

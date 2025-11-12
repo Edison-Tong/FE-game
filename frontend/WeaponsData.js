@@ -28,7 +28,6 @@ export const weaponsData = {
       label: "Bow",
       value: "bow",
       type: "melee",
-
       stats: { "hit%": 85, str: 2, def: 0, mgk: 0, res: 0, spd: 0, skl: 0, knl: 1, lck: 0, range: 1 },
     },
     gauntlets: {
@@ -38,11 +37,11 @@ export const weaponsData = {
 
       stats: { "hit%": 80, str: 2, def: 0, mgk: 0, res: 0, spd: 0, skl: 0, knl: 0, lck: 2, range: 1 },
     },
+
     fire: {
       label: "Fire",
       value: "fire",
       type: "magick",
-
       stats: { "hit%": 80, str: 0, def: 0, mgk: 4, res: 0, spd: 0, skl: 0, knl: 0, lck: 2, range: 1 },
     },
     water: {
@@ -92,7 +91,6 @@ export const weaponsData = {
       value: "dark",
       type: "magick",
       stats: { "hit%": 75, str: 0, def: 1, mgk: 3, res: 1, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
-      // Wind magick grants +1 MOVE
     },
     grey: {
       label: "Gray",

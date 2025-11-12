@@ -11,7 +11,6 @@ import TeamViewScreen from "./TeamViewScreen";
 import CharCreation from "./CharCreation";
 
 const Stack = createNativeStackNavigator();
-
 export default function App() {
   // Warm up the backend
   useEffect(() => {
