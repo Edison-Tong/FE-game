@@ -89,7 +89,13 @@ export default function HomeScreen() {
         <View style={styles.overlay}>
           <View style={styles.modalContent}>
             <Text style={styles.title}>Create a New Team</Text>
-            <TextInput style={styles.input} placeholder="Enter team name" value={teamName} onChangeText={setTeamName} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter team name"
+              value={teamName}
+              onChangeText={setTeamName}
+              maxLength={20}
+            />
             <Button title="Create Team" onPress={handleCreate} />
             <Button title="Cancel" onPress={handleClose} color="red" />
           </View>
@@ -120,7 +126,7 @@ const styles = StyleSheet.create({
   charCount: {
     color: "black",
     position: "absolute",
-    right: 40,
+    right: 10,
   },
   newTeamBtn: {
     backgroundColor: "green",
@@ -133,7 +139,8 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    alignItems: "center",
+    textAlign: "center",
+    width: "80%",
   },
   overlay: {
     flex: 1,
