@@ -2,6 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AuthProvider } from "./AuthContext";
 import { useEffect } from "react";
+import { Button } from "react-native";
 import { BACKEND_URL } from "@env";
 
 import Login from "./Login";
@@ -25,7 +26,25 @@ export default function App() {
         <Stack.Navigator initialRouteName="Login">
           <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
           <Stack.Screen name="Register" component={Register} />
-          <Stack.Screen name="HomeScreen" component={HomeScreen} />
+          <Stack.Screen
+            name="HomeScreen"
+            component={HomeScreen}
+            options={({ navigation }) => ({
+              headerBackVisible: false,
+              headerRight: () => (
+                <Button
+                  title="Logout"
+                  onPress={() =>
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: "Login" }],
+                    })
+                  }
+                />
+              ),
+            })}
+          />
+
           <Stack.Screen name="TeamViewScreen" component={TeamViewScreen} />
           <Stack.Screen name="CharCreation" component={CharCreation} />
         </Stack.Navigator>

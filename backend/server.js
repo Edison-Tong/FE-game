@@ -108,7 +108,7 @@ app.get("/get-teams", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, team_name FROM teams WHERE user_id = $1",
+      "SELECT id, team_name, char_count FROM teams WHERE user_id = $1",
       [userId] // pass userId safely here
     );
 
@@ -164,5 +164,23 @@ app.post("/create-character", async (req, res) => {
     res.json({ newChar: newChar.rows[0] });
   } catch (err) {
     console.log(err);
+  }
+});
+
+app.patch("/increment-char-count", async (req, res) => {
+  const { teamId } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE teams
+       SET char_count = char_count + 1
+       WHERE id = $1
+       RETURNING char_count`,
+      [teamId]
+    );
+    res.json({ success: true, newCount: result.rows[0].char_count });
+  } catch (err) {
+    console.error("Error incrementing character count:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 });

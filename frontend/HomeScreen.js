@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Button } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 
@@ -12,19 +12,21 @@ export default function HomeScreen() {
   const [teamName, setTeamName] = useState("");
   const [teams, setTeams] = useState([]);
 
-  useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/get-teams?userId=` + user.id);
-        const data = await res.json();
-        setTeams(data.teams); // Example: [{ id:1, team_name:"Sharks" }, { id:2, team_name:"Dragons"}]
-      } catch (err) {
-        console.error("Error fetching teams:", err);
-      }
-    };
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchTeams = async () => {
+        try {
+          const res = await fetch(`${BACKEND_URL}/get-teams?userId=` + user.id);
+          const data = await res.json();
+          setTeams(data.teams);
+        } catch (err) {
+          console.error(err);
+        }
+      };
 
-    fetchTeams();
-  }, [teamName]);
+      fetchTeams();
+    }, [])
+  );
 
   const handleCreateTeam = () => {
     setVisible(true); // open modal
@@ -70,17 +72,19 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {teams.map((team) => (
-        <TouchableOpacity key={team.id} style={styles.teamBtn} onPress={() => goToTeam(team.id)}>
-          <Text style={styles.buttonText}>{team.team_name}</Text>
-        </TouchableOpacity>
-      ))}
+      {teams.map((team) => {
+        return (
+          <TouchableOpacity key={team.id} style={styles.teamBtn} onPress={() => goToTeam(team.id)}>
+            <Text style={styles.buttonText}>{team.team_name}</Text>
+            <Text style={styles.charCount}>{team.char_count}/6</Text>
+          </TouchableOpacity>
+        );
+      })}
 
       <TouchableOpacity style={styles.newTeamBtn} onPress={handleCreateTeam}>
         <Text style={styles.buttonText}>Create a new team</Text>
       </TouchableOpacity>
 
-      {/* Modal */}
       <Modal visible={visible} animationType="slide" transparent={true}>
         <View style={styles.overlay}>
           <View style={styles.modalContent}>
@@ -108,7 +112,15 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderRadius: 50,
     margin: 5,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  charCount: {
+    color: "black",
+    position: "absolute",
+    right: 40,
   },
   newTeamBtn: {
     backgroundColor: "green",
@@ -121,7 +133,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    textAlign: "center",
+    alignItems: "center",
   },
   overlay: {
     flex: 1,

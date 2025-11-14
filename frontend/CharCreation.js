@@ -157,6 +157,7 @@ export default function CharCreation() {
       alert("Please fill in all fields");
       return;
     }
+
     try {
       const res = await fetch(`${BACKEND_URL}/create-character`, {
         method: "POST",
@@ -174,12 +175,27 @@ export default function CharCreation() {
         }),
       });
 
-      setInvalidFields([]); // clear once valid
+      if (!res.ok) {
+        alert("Character creation failed");
+        return;
+      }
+
+      await fetch(`${BACKEND_URL}/increment-char-count`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId }),
+      });
+
+      setInvalidFields([]);
       alert("Character created successfully!");
 
-      navigation.navigate("TeamViewScreen", { teamId });
+      navigation.reset({
+        index: 1,
+        routes: [{ name: "HomeScreen" }, { name: "TeamViewScreen", params: { teamId } }],
+      });
     } catch (err) {
-      alert("Something went wrong", err);
+      alert("Something went wrong");
+      console.error(err);
     }
   };
 
