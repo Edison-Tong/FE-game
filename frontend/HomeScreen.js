@@ -74,7 +74,11 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {teams.map((team) => {
         return (
-          <TouchableOpacity key={team.id} style={styles.teamBtn} onPress={() => goToTeam(team.id)}>
+          <TouchableOpacity
+            key={team.id}
+            style={team.char_count === 6 ? styles.completeTeam : styles.teamBtn}
+            onPress={() => goToTeam(team.id)}
+          >
             <Text style={styles.buttonText}>{team.team_name}</Text>
             <Text style={styles.charCount}>{team.char_count}/6</Text>
           </TouchableOpacity>
@@ -113,7 +117,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   teamBtn: {
-    backgroundColor: "#007BFF",
+    backgroundColor: "grey",
+    width: 300,
+    paddingVertical: 20,
+    borderRadius: 50,
+    margin: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  completeTeam: {
+    backgroundColor: "green",
     width: 300,
     paddingVertical: 20,
     borderRadius: 50,
@@ -129,7 +144,7 @@ const styles = StyleSheet.create({
     right: 10,
   },
   newTeamBtn: {
-    backgroundColor: "green",
+    backgroundColor: "blue",
     width: 300,
     paddingVertical: 20,
     borderRadius: 50,

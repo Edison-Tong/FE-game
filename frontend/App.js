@@ -10,6 +10,7 @@ import Register from "./Register";
 import HomeScreen from "./HomeScreen";
 import TeamViewScreen from "./TeamViewScreen";
 import CharCreation from "./CharCreation";
+import MatchmakingScreen from "./MatchmakingScreen";
 
 const Stack = createNativeStackNavigator();
 export default function App() {
@@ -23,15 +24,20 @@ export default function App() {
   return (
     <AuthProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login">
-          <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={Register} />
+        <Stack.Navigator initialRouteName="MatchmakingScreen">
+          <Stack.Screen
+            name="Login"
+            component={Login}
+            options={{ headerBackTitleVisible: false, title: "", headerShown: false }}
+          />
+          <Stack.Screen name="Register" component={Register} options={{ headerBackTitleVisible: false }} />
           <Stack.Screen
             name="HomeScreen"
             component={HomeScreen}
             options={({ navigation }) => ({
               headerBackVisible: false,
-              headerRight: () => (
+              title: "",
+              headerLeft: () => (
                 <Button
                   title="Logout"
                   onPress={() =>
@@ -42,11 +48,25 @@ export default function App() {
                   }
                 />
               ),
+              headerRight: () => <Button title="Battle" onPress={() => navigation.navigate("MatchmakingScreen")} />,
             })}
           />
 
-          <Stack.Screen name="TeamViewScreen" component={TeamViewScreen} />
-          <Stack.Screen name="CharCreation" component={CharCreation} />
+          <Stack.Screen
+            name="TeamViewScreen"
+            component={TeamViewScreen}
+            options={{ headerBackTitleVisible: false, title: "" }}
+          />
+          <Stack.Screen
+            name="CharCreation"
+            component={CharCreation}
+            options={{ headerBackTitleVisible: false, title: "" }}
+          />
+          <Stack.Screen
+            name="MatchmakingScreen"
+            component={MatchmakingScreen}
+            options={{ headerBackTitleVisible: false, title: "" }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>
