@@ -1,21 +1,38 @@
 import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
-import { useState } from "react";
-
+import { useNavigation } from "@react-navigation/native";
+import { useState, useContext, useEffect } from "react";
+import { AuthContext } from "./AuthContext";
+import { BACKEND_URL } from "@env";
 export default function MatchmakingScreen() {
+  const { user } = useContext(AuthContext);
+  const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
+
+  useEffect(() => {
+    const fetchFinishedTeams = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/get-finished-teams?userId=` + user.id);
+        const data = await res.json();
+        setTeams(data.teams);
+      } catch (err) {
+        alert(err);
+      }
+    };
+    fetchFinishedTeams();
+  }, []);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-        <TouchableOpacity style={[styles.buttons, styles.team]}>
-          <Text style={styles.buttonText}>Team 1</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.buttons, styles.team]}>
-          <Text style={styles.buttonText}>Team 2</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.buttons, styles.team]}>
-          <Text style={styles.buttonText}>Team 3</Text>
-        </TouchableOpacity>
+        {teams.map((team) => {
+          console.log(team);
+          return (
+            <TouchableOpacity key={team.id} style={[styles.buttons, styles.team]}>
+              <Text style={styles.buttonText}>{team.team_name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+
         <TouchableOpacity style={styles.buttons}>
           <Text style={styles.buttonText}>Host</Text>
         </TouchableOpacity>

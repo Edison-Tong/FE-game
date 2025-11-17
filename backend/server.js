@@ -184,3 +184,19 @@ app.patch("/increment-char-count", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+//get completed teams
+app.get("/get-finished-teams", async (req, res) => {
+  const { userId } = req.query;
+  try {
+    const result = await pool.query(
+      "SELECT id, team_name, char_count FROM teams WHERE user_id = $1 and char_count = 6",
+      [userId]
+    );
+
+    res.json({ teams: result.rows });
+  } catch (err) {
+    console.error("Error fetching teams:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
