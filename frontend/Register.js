@@ -1,13 +1,4 @@
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  Button,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Keyboard,
-} from "react-native";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import React, { useState, useContext } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
@@ -53,22 +44,32 @@ export default function Register() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <Text style={styles.title}>Create a user</Text>
-        <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} />
+        <TextInput
+          style={styles.input}
+          placeholder="Username"
+          placeholderTextColor="#AFAFAF"
+          value={username}
+          onChangeText={setUsername}
+        />
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor="#AFAFAF"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
         <TextInput
           style={styles.input}
-          placeholder="confirm password"
+          placeholder="Confirm password"
+          placeholderTextColor="#AFAFAF"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
-        <Button title="Create new user" onPress={handleRegister} />
+        <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+          <Text style={styles.registerText}>Create new user</Text>
+        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -79,25 +80,35 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "bold",
     marginBottom: 20,
+    color: "#C9A66B",
   },
   container: {
     flex: 1,
-    backgroundColor: "red",
+    backgroundColor: "#2B2B2B",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 20,
   },
   input: {
     width: "100%",
-    backgroundColor: "#fff",
-    padding: 15,
+    backgroundColor: "#3C3C3C",
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     borderRadius: 10,
     marginBottom: 20,
     fontSize: 16,
+    color: "#F5F5F5",
   },
-  newUserBtn: {
-    padding: 15,
+  registerButton: {
+    backgroundColor: "#C9A66B",
     borderRadius: 10,
-    marginBottom: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  registerText: {
+    color: "#2B2B2B",
     fontSize: 16,
+    fontWeight: "bold",
   },
 });

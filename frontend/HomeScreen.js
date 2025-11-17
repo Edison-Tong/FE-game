@@ -29,7 +29,7 @@ export default function HomeScreen() {
   );
 
   const handleCreateTeam = () => {
-    setVisible(true); // open modal
+    setVisible(true);
   };
 
   const handleCreate = async () => {
@@ -112,14 +112,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "red",
+    backgroundColor: "#2B2B2B",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 20,
   },
   teamBtn: {
-    backgroundColor: "grey",
+    backgroundColor: "#6B4C3C",
     width: 300,
-    paddingVertical: 20,
+    paddingVertical: 15,
     borderRadius: 50,
     margin: 5,
     flexDirection: "row",
@@ -128,10 +129,10 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   completeTeam: {
-    backgroundColor: "green",
+    backgroundColor: "#C9A66B",
     width: 300,
-    paddingVertical: 20,
-    borderRadius: 50,
+    paddingVertical: 15,
+    borderRadius: 25,
     margin: 5,
     flexDirection: "row",
     alignItems: "center",
@@ -139,46 +140,75 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   charCount: {
-    color: "black",
+    color: "#F5F5F5",
     position: "absolute",
     right: 10,
   },
   newTeamBtn: {
-    backgroundColor: "blue",
+    backgroundColor: "#4A5A7A",
     width: 300,
-    paddingVertical: 20,
-    borderRadius: 50,
+    paddingVertical: 15,
+    borderRadius: 25,
     margin: 5,
     alignItems: "center",
   },
   buttonText: {
-    color: "white",
+    color: "#2B2B2B",
     fontSize: 16,
     textAlign: "center",
     width: "80%",
+    fontWeight: "bold",
   },
   overlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(43, 43, 43, 0.85)",
   },
   modalContent: {
     width: 300,
     padding: 20,
-    backgroundColor: "white",
+    backgroundColor: "#3C3C3C",
     borderRadius: 10,
   },
   title: {
-    fontSize: 18,
-    marginBottom: 10,
+    fontSize: 20,
+    marginBottom: 15,
     textAlign: "center",
+    color: "#C9A66B",
+    fontWeight: "bold",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
+    borderColor: "#AFAFAF",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
     marginBottom: 15,
     borderRadius: 5,
+    backgroundColor: "#2B2B2B",
+    color: "#F5F5F5",
+  },
+  modalButton: {
+    backgroundColor: "#C9A66B",
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#2B2B2B",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: "#C0392B",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#F5F5F5",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

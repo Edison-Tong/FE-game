@@ -86,7 +86,7 @@ export default function CharCreation() {
     const abilities = weaponsData.weaponAbilities[weaponValue] || [];
     return abilities.map((a) => ({
       label: a.name,
-      value: a.name, // primitive
+      value: a.name,
       disabled: a.name === ability1 || a.name === ability2,
     }));
   }, [weaponValue, ability1, ability2, weaponsData]);
@@ -115,7 +115,7 @@ export default function CharCreation() {
   const handleChange = (key, delta) => {
     setBaseStats((prev) => ({
       ...prev,
-      [key]: Math.max(0, prev[key] + delta), // prevent negative stats
+      [key]: Math.max(0, prev[key] + delta),
     }));
     setStatsTotal((prev) => prev + delta);
   };
@@ -233,6 +233,26 @@ export default function CharCreation() {
             <DropDownPicker
               open={openSize}
               placeholder="#"
+              style={{
+                backgroundColor: "#D4B36C",
+                borderColor: "#8C6A41",
+              }}
+              dropDownContainerStyle={{
+                backgroundColor: "#3B2A1A",
+                borderColor: "#8C6A41",
+              }}
+              placeholderStyle={{
+                color: "black",
+              }}
+              labelStyle={{
+                color: "#EBD9B4",
+              }}
+              listItemContainerStyle={{
+                backgroundColor: "#3B2A1A",
+              }}
+              listItemLabelStyle={{
+                color: "#EBD9B4",
+              }}
               value={sizeValue}
               items={sizeItems}
               setOpen={setOpenSize}
@@ -250,6 +270,26 @@ export default function CharCreation() {
             <DropDownPicker
               open={openType}
               placeholder="Character Type"
+              style={{
+                backgroundColor: "#D4B36C",
+                borderColor: "#8C6A41",
+              }}
+              dropDownContainerStyle={{
+                backgroundColor: "#3B2A1A",
+                borderColor: "#8C6A41",
+              }}
+              placeholderStyle={{
+                color: "black",
+              }}
+              labelStyle={{
+                color: "#EBD9B4",
+              }}
+              listItemContainerStyle={{
+                backgroundColor: "#3B2A1A",
+              }}
+              listItemLabelStyle={{
+                color: "#EBD9B4",
+              }}
               value={typeValue}
               items={typeItems}
               setOpen={setOpenType}
@@ -322,6 +362,26 @@ export default function CharCreation() {
                   <DropDownPicker
                     open={openWeapon}
                     placeholder={typeValue === null ? "Pick character type" : "pick a weapon"}
+                    style={{
+                      backgroundColor: "#D4B36C",
+                      borderColor: "#8C6A41",
+                    }}
+                    dropDownContainerStyle={{
+                      backgroundColor: "#3B2A1A",
+                      borderColor: "#8C6A41",
+                    }}
+                    placeholderStyle={{
+                      color: "black",
+                    }}
+                    labelStyle={{
+                      color: "#EBD9B4",
+                    }}
+                    listItemContainerStyle={{
+                      backgroundColor: "#3B2A1A",
+                    }}
+                    listItemLabelStyle={{
+                      color: "#EBD9B4",
+                    }}
                     value={weaponValue}
                     items={typeValue === "mage" ? magicWeapons : meleeWeapons}
                     setOpen={setOpenWeapon}
@@ -354,6 +414,26 @@ export default function CharCreation() {
                 <DropDownPicker
                   open={openAbility1}
                   placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 1"}
+                  style={{
+                    backgroundColor: "#D4B36C",
+                    borderColor: "#8C6A41",
+                  }}
+                  dropDownContainerStyle={{
+                    backgroundColor: "#3B2A1A",
+                    borderColor: "#8C6A41",
+                  }}
+                  placeholderStyle={{
+                    color: "black",
+                  }}
+                  labelStyle={{
+                    color: "#EBD9B4",
+                  }}
+                  listItemContainerStyle={{
+                    backgroundColor: "#3B2A1A",
+                  }}
+                  listItemLabelStyle={{
+                    color: "#EBD9B4",
+                  }}
                   value={ability1}
                   items={abilityOptions}
                   setOpen={setOpenAbility1}
@@ -386,6 +466,26 @@ export default function CharCreation() {
                 <DropDownPicker
                   open={openAbility2}
                   placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 2"}
+                  style={{
+                    backgroundColor: "#D4B36C",
+                    borderColor: "#8C6A41",
+                  }}
+                  dropDownContainerStyle={{
+                    backgroundColor: "#3B2A1A",
+                    borderColor: "#8C6A41",
+                  }}
+                  placeholderStyle={{
+                    color: "black",
+                  }}
+                  labelStyle={{
+                    color: "#EBD9B4",
+                  }}
+                  listItemContainerStyle={{
+                    backgroundColor: "#3B2A1A",
+                  }}
+                  listItemLabelStyle={{
+                    color: "#EBD9B4",
+                  }}
                   value={ability2}
                   items={abilityOptions}
                   setOpen={setOpenAbility2}
@@ -428,10 +528,10 @@ export default function CharCreation() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "red",
+    backgroundColor: "#2B2B2B",
   },
   charCard: {
-    backgroundColor: "grey",
+    backgroundColor: "#3C3C3C",
     flex: 1,
     borderRadius: 50,
     margin: 10,
@@ -441,18 +541,22 @@ const styles = StyleSheet.create({
   charName: {
     position: "absolute",
     width: "45%",
-    backgroundColor: "#fff",
+    backgroundColor: "#F5F0D5",
+    color: "#3B2F1E",
     padding: 10,
     fontSize: 16,
+    borderRadius: 8,
     top: "1%",
     left: "10%",
   },
   charLabel: {
     position: "absolute",
     width: "30%",
-    backgroundColor: "#fff",
+    backgroundColor: "#F5F0D5",
+    color: "#3B2F1E",
     padding: 10,
     fontSize: 16,
+    borderRadius: 8,
     top: "1%",
     left: "60%",
   },
@@ -460,9 +564,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     height: "15%",
     width: "30%",
-    backgroundColor: "white",
+    backgroundColor: "#F5F0D5",
+    borderRadius: 12,
     top: "7%",
     left: "10%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   charLvlLabel: {
     position: "absolute",
@@ -488,75 +595,83 @@ const styles = StyleSheet.create({
     top: "18%",
     right: "30%",
   },
-  charLvl: { position: "absolute", color: "white", fontSize: 20, fontWeight: "bold", top: "8%", right: "25%" },
-  charMove: { position: "absolute", color: "white", fontSize: 20, fontWeight: "bold", top: "13%", right: "25%" },
+  charLvl: {
+    position: "absolute",
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+    top: "8%",
+    right: "25%",
+  },
+  charMove: {
+    position: "absolute",
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+    top: "13%",
+    right: "25%",
+  },
   charSize: {
     position: "absolute",
     width: "20%",
     top: "17%",
     right: "10%",
+    backgroundColor: "#F5F0D5",
+    borderRadius: 8,
   },
   charType: {
     position: "absolute",
     width: "45%",
     top: "23%",
+    backgroundColor: "#F5F0D5",
+    borderRadius: 8,
   },
   baseStatsBtn: {
     position: "absolute",
-    backgroundColor: "darkgrey",
     height: "5%",
     width: "30%",
     top: "32%",
     left: "3%",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "black",
+    borderRadius: 10,
   },
   atkStatsBtn: {
     position: "absolute",
-    backgroundColor: "lightgrey",
     height: "5%",
     width: "30%",
     top: "32%",
     left: "33%",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "black",
+    borderRadius: 10,
   },
   notPressed: {
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderTopColor: "#fff", // Light on top
-    borderLeftColor: "#fff",
-    borderBottomColor: "#666", // Dark on bottom
-    borderRightColor: "#666",
-    backgroundColor: "#ccc",
+    backgroundColor: "#C9A66B",
+    borderWidth: 3,
+    borderTopColor: "#FFF3D1",
+    borderLeftColor: "#FFF3D1",
+    borderBottomColor: "#6B4C2D",
+    borderRightColor: "#6B4C2D",
   },
   pressed: {
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderTopColor: "#666", // Dark on top
-    borderLeftColor: "#666",
-    borderBottomColor: "#fff", // Light on bottom
-    borderRightColor: "#fff",
-    backgroundColor: "#ccc",
+    backgroundColor: "#D4B36C",
+    borderWidth: 3,
+    borderTopColor: "#6B4C2D",
+    borderLeftColor: "#6B4C2D",
+    borderBottomColor: "#FFF3D1",
+    borderRightColor: "#FFF3D1",
   },
   statsWrapper: {
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 10,
-    width: "100%", // ensure full width is used
+    width: "100%",
     position: "absolute",
     top: "40%",
   },
   baseStatsContainer: {
-    backgroundColor: "white",
+    backgroundColor: "#F5F0D5",
     borderRadius: 10,
     padding: 10,
     flex: 1,
@@ -600,7 +715,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   weaponStatsContainer: {
-    backgroundColor: "#f0f4ff",
+    backgroundColor: "#F5F0D5",
     borderRadius: 10,
     padding: 10,
     flex: 1,
@@ -632,7 +747,7 @@ const styles = StyleSheet.create({
     top: "15%",
   },
   attackContainer: {
-    backgroundColor: "white",
+    backgroundColor: "#F5F0D5",
     borderRadius: 10,
     padding: 12,
     margin: 8,
@@ -655,12 +770,16 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   submitBtn: {
-    backgroundColor: "skyblue",
+    backgroundColor: "#D4B36C",
+    borderWidth: 3,
+    borderColor: "#6B4C2D",
     position: "absolute",
     bottom: 20,
-    padding: 10,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
   },
+
   invalidInput: {
     borderWidth: 2,
     borderColor: "red",

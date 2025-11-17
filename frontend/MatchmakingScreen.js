@@ -23,7 +23,6 @@ export default function MatchmakingScreen() {
   }, []);
 
   function chooseATeam(teamId) {
-    console.log("TEST");
     setSelectedTeam(teamId);
     setCanPress(true);
   }
@@ -31,18 +30,28 @@ export default function MatchmakingScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-        {teams.map((team) => {
-          console.log(team);
-          return (
-            <TouchableOpacity
-              key={team.id}
-              onPress={() => chooseATeam(team.id)}
-              style={[styles.buttons, selectedTeam === team.id ? styles.selectedTeam : styles.team]}
-            >
-              <Text style={styles.buttonText}>{team.team_name}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {teams.length === 0 ? (
+          <View>
+            <Text style={styles.infoText}>
+              You have no finished teams available. A team must have 6 characters to be used.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.teamListContainer}>
+            <Text style={styles.infoText}>Select the team you want to battle with.</Text>
+            {teams.map((team) => {
+              return (
+                <TouchableOpacity
+                  key={team.id}
+                  onPress={() => chooseATeam(team.id)}
+                  style={[styles.buttons, selectedTeam === team.id ? styles.selectedTeam : styles.team]}
+                >
+                  <Text style={styles.buttonText}>{team.team_name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <TouchableOpacity style={[styles.buttons, !canPress && styles.disabledButton]} disabled={!canPress}>
           <Text style={styles.buttonText}>Host</Text>
@@ -59,38 +68,69 @@ export default function MatchmakingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f2f5", // light neutral background
+    backgroundColor: "#2B2B2B",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  team: {
+    backgroundColor: "#C9A66B",
+    width: 300,
+    paddingVertical: 18,
+    borderRadius: 50,
+    marginVertical: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  team: {
-    backgroundColor: "#4caf50", // nice green for unselected team
-  },
   selectedTeam: {
-    backgroundColor: "#ff9800", // bright orange to stand out
+    backgroundColor: "#D4B36C",
+    width: 300,
+    paddingVertical: 18,
+    borderRadius: 50,
+    marginVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#D4B36C",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 10,
   },
   buttons: {
     width: 300,
-    paddingVertical: 20,
+    paddingVertical: 18,
     borderRadius: 50,
-    margin: 8,
+    marginVertical: 10,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000", // subtle shadow for depth
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    backgroundColor: "#4A5A7A",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
     shadowRadius: 3,
-    elevation: 4,
-    backgroundColor: "#2196f3", // bright blue when enabled
+    elevation: 5,
   },
   buttonText: {
-    color: "#fff", // white text on colored buttons
+    color: "#2B2B2B",
     fontSize: 16,
-    fontWeight: "600",
     textAlign: "center",
+    width: "80%",
+    fontWeight: "bold",
+  },
+  disabledButton: {
+    backgroundColor: "#5A2A2A",
+    shadowOpacity: 0.15,
+  },
+  infoText: {
+    color: "#c0ad00ff",
+    fontSize: 18,
+    textAlign: "center",
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    fontWeight: "500",
   },
 
-  disabledButton: {
-    backgroundColor: "#9e9e9e", // muted gray for disabled
+  teamListContainer: {
+    alignItems: "center",
   },
 });
