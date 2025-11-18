@@ -102,6 +102,29 @@ app.post("/create-team", async (req, res) => {
   }
 });
 
+// Delete team
+app.delete("/delete-team", async (req, res) => {
+  const { teamId } = req.body;
+
+  if (!teamId) {
+    return res.status(400).json({ message: "No teamId provided" });
+  }
+
+  try {
+    // Delete the team
+    const result = await pool.query("DELETE FROM teams WHERE id = $1 RETURNING *", [teamId]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    res.json({ message: "Team deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting team:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 //get teams
 app.get("/get-teams", async (req, res) => {
   const { userId } = req.query; // get userId from query string

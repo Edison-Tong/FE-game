@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Button } from "react-native";
+import { FontAwesome } from "@expo/vector-icons";
+import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Button, Alert } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
@@ -52,6 +53,7 @@ export default function HomeScreen() {
         alert(`Team "${teamName}" created successfully!`);
         setVisible(false);
         setTeamName("");
+        setTeams((prev) => [...prev, data.team]);
       } else {
         alert(data.message);
       }
@@ -70,6 +72,43 @@ export default function HomeScreen() {
     navigation.navigate("TeamViewScreen", { teamId });
   };
 
+  const confirmDelete = (teamId) => {
+    Alert.alert("Delete Team", "Are you sure you want to delete this team? This cannot be undone.", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Yes, Delete",
+        style: "destructive",
+        onPress: () => deleteTeam(teamId), // only delete if user confirms
+      },
+    ]);
+  };
+
+  const deleteTeam = async (teamId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/delete-team`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ teamId }),
+      });
+
+      const data = await res.json();
+      if (data.message === "Team deleted successfully") {
+        alert("Team deleted successfully");
+        const updatedTeams = teams.filter((team) => team.id !== teamId);
+        setTeams(updatedTeams);
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      alert(err);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {teams.map((team) => {
@@ -79,8 +118,15 @@ export default function HomeScreen() {
             style={team.char_count === 6 ? styles.completeTeam : styles.teamBtn}
             onPress={() => goToTeam(team.id)}
           >
-            <Text style={styles.buttonText}>{team.team_name}</Text>
-            <Text style={styles.charCount}>{team.char_count}/6</Text>
+            <View style={styles.teamRow}>
+              <TouchableOpacity onPress={() => confirmDelete(team.id)}>
+                <FontAwesome name="trash" size={24} color="#C94A4A" style={styles.trashIcon} />
+              </TouchableOpacity>
+
+              <Text style={styles.teamName}>{team.team_name}</Text>
+
+              <Text style={styles.charCount}>{team.char_count}/6</Text>
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -152,12 +198,28 @@ const styles = StyleSheet.create({
     margin: 5,
     alignItems: "center",
   },
-  buttonText: {
+  teamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  trashIcon: {
+    marginRight: 10,
+  },
+  teamName: {
+    flex: 1,
     color: "#2B2B2B",
-    fontSize: 16,
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "600",
     width: "80%",
-    fontWeight: "bold",
+    textAlign: "center",
+  },
+  charCount: {
+    color: "#EADBB7",
+    fontSize: 16,
+    fontWeight: "500",
   },
   overlay: {
     flex: 1,
