@@ -223,3 +223,98 @@ app.get("/get-finished-teams", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// Start hosting a game
+app.post("/create-room", async (req, res) => {
+  const { userId } = req.body;
+
+  // Generate 4-character code
+  const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO rooms (host_id, code)
+       VALUES ($1, $2)
+       RETURNING id, code`,
+      [userId, code]
+    );
+
+    res.json({
+      message: "Room created",
+      roomId: result.rows[0].id,
+      code: result.rows[0].code,
+    });
+  } catch (err) {
+    console.error("Error creating room:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// join a hosted game
+app.post("/join-room", async (req, res) => {
+  const { userId, code } = req.body;
+
+  try {
+    // Find room by code
+    const roomCheck = await pool.query("SELECT * FROM rooms WHERE code = $1", [code.toUpperCase()]);
+
+    if (roomCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Invalid code" });
+    }
+
+    const room = roomCheck.rows[0];
+
+    if (room.joiner_id) {
+      return res.status(409).json({ message: "Room already full" });
+    }
+
+    // Update room to link joiner
+    await pool.query("UPDATE rooms SET joiner_id = $1 WHERE id = $2", [userId, room.id]);
+
+    res.json({
+      message: "Joined room",
+      roomId: room.id,
+      hostId: room.host_id,
+    });
+  } catch (err) {
+    console.error("Error joining room:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// check room status
+app.get("/room-status", async (req, res) => {
+  const { roomId } = req.query;
+
+  try {
+    const result = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error checking room status:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete a room (Host cancels matchmaking)
+app.delete("/delete-room", async (req, res) => {
+  const { roomId } = req.body;
+
+  if (!roomId) {
+    return res.status(400).json({ message: "Missing roomId" });
+  }
+
+  try {
+    // Remove room from database
+    await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
+
+    return res.status(200).json({ message: "Room deleted" });
+  } catch (err) {
+    console.error("Error deleting room:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});

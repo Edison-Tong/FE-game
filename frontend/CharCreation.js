@@ -36,13 +36,13 @@ export default function CharCreation() {
 
   const typeItems = useMemo(
     () => [
-      { label: "Regular", value: "regular" },
+      { label: "Melee", value: "melee" },
       { label: "Mage", value: "mage" },
     ],
     []
   );
 
-  const moveAmount = { regular: 5 + bonus, mage: 4 + bonus };
+  const moveAmount = { melee: 5 + bonus, mage: 4 + bonus };
   const [weaponValue, setWeaponValue] = useState(null);
 
   const meleeWeapons = useMemo(

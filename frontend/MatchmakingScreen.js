@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 export default function MatchmakingScreen() {
@@ -8,6 +8,13 @@ export default function MatchmakingScreen() {
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [canPress, setCanPress] = useState(false);
+  const [roomId, setRoomId] = useState(null);
+  const [roomCode, setRoomCode] = useState("");
+  const [showHostModal, setShowHostModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  let pollingInterval = useRef(null);
+
+  const navigation = useNavigation();
 
   useEffect(() => {
     const fetchFinishedTeams = async () => {
@@ -26,6 +33,86 @@ export default function MatchmakingScreen() {
     setSelectedTeam(teamId);
     setCanPress(true);
   }
+
+  const hostMatch = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/create-room`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, teamId: selectedTeam }),
+      });
+
+      const data = await res.json();
+
+      setRoomId(data.roomId);
+      setRoomCode(data.code);
+      setShowHostModal(true);
+
+      startPolling(data.roomId);
+    } catch (err) {
+      alert("Error hosting match");
+      console.log(err);
+    }
+  };
+
+  const startPolling = (roomId) => {
+    pollingInterval.current = setInterval(async () => {
+      const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
+      const data = await res.json();
+
+      if (data.joiner_id) {
+        clearInterval(pollingInterval.current);
+        setShowHostModal(false);
+
+        navigation.navigate("BattleScreen", {
+          roomId,
+          hostId: data.host_id,
+          joinerId: data.joiner_id,
+        });
+      }
+    }, 1500);
+  };
+
+  const cancelRoom = async () => {
+    try {
+      await fetch(`${BACKEND_URL}/delete-room`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+
+      clearInterval(pollingInterval.current);
+      setShowHostModal(false);
+      setRoomId(null);
+      setRoomCode("");
+    } catch (err) {
+      alert("Error canceling room");
+      console.log(err);
+    }
+  };
+
+  const joinMatch = async () => {
+    const res = await fetch(`${BACKEND_URL}/join-room`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.id,
+        code: joinCode,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.message === "Joined room") {
+      navigation.navigate("BattleScreen", {
+        roomId: data.roomId,
+        hostId: data.hostId,
+        joinerId: user.id,
+      });
+    } else {
+      alert(data.message);
+    }
+  };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -53,13 +140,33 @@ export default function MatchmakingScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={[styles.buttons, !canPress && styles.disabledButton]} disabled={!canPress}>
+        <TouchableOpacity
+          onPress={hostMatch}
+          style={[styles.buttons, !canPress && styles.disabledButton]}
+          disabled={!canPress}
+        >
           <Text style={styles.buttonText}>Host</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.buttons, !canPress && styles.disabledButton]} disabled={!canPress}>
+        <TouchableOpacity
+          onPress={joinMatch}
+          style={[styles.buttons, !canPress && styles.disabledButton]}
+          disabled={!canPress}
+        >
           <Text style={styles.buttonText}>Join</Text>
         </TouchableOpacity>
+        {showHostModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Share This Code</Text>
+              <Text style={styles.roomCode}>{roomCode}</Text>
+
+              <TouchableOpacity style={styles.cancelButton} onPress={cancelRoom}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -132,5 +239,46 @@ const styles = StyleSheet.create({
 
   teamListContainer: {
     alignItems: "center",
+  },
+
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBox: {
+    width: 300,
+    padding: 25,
+    backgroundColor: "#2B2B2B",
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    color: "#fff",
+    fontSize: 22,
+    marginBottom: 15,
+    fontWeight: "bold",
+  },
+  roomCode: {
+    color: "#D4B36C",
+    fontSize: 40,
+    fontWeight: "bold",
+    marginBottom: 25,
+  },
+  cancelButton: {
+    backgroundColor: "#C94A4A",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+  },
+  cancelText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
