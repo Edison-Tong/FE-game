@@ -29,8 +29,17 @@ export default function MatchmakingScreen() {
   const clashShake = useRef(new Animated.Value(0)).current;
 
   let pollingInterval = useRef(null);
-
   const navigation = useNavigation();
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (roomId) {
+        cancelRoom();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, roomId]);
 
   useEffect(() => {
     const fetchFinishedTeams = async () => {
