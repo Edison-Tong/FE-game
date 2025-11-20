@@ -22,7 +22,6 @@ export default function MatchmakingScreen() {
   const [showHostModal, setShowHostModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
-  const [waitingDots, setWaitingDots] = useState(".");
   const waitingAnimation = useRef(null);
   const leftSword = useRef(new Animated.Value(-20)).current;
   const rightSword = useRef(new Animated.Value(20)).current;
@@ -91,10 +90,12 @@ export default function MatchmakingScreen() {
         clearTimeout(waitingAnimation.current);
         setShowHostModal(false);
 
+        // When hosting:
         navigation.navigate("BattleScreen", {
           roomId,
           hostId: data.host_id,
           joinerId: data.joiner_id,
+          userId: user.id,
         });
       }
     }, 1500);
@@ -201,10 +202,12 @@ export default function MatchmakingScreen() {
         setShowJoinModal(false);
         setJoinCode("");
 
+        // When joining:
         navigation.navigate("BattleScreen", {
           roomId: data.roomId,
           hostId: data.hostId,
           joinerId: user.id,
+          userId: user.id,
         });
       } else {
         alert(data.message);
@@ -393,11 +396,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     fontWeight: "500",
   },
-
   teamListContainer: {
     alignItems: "center",
   },
-
   modalOverlay: {
     position: "absolute",
     top: 0,
@@ -445,7 +446,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     height: 60,
   },
-
   sword: {
     fontSize: 40,
     marginHorizontal: 10,

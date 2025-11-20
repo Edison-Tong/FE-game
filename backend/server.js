@@ -318,3 +318,25 @@ app.delete("/delete-room", async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// get opponents username
+app.get("/get-user", async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: "Missing userId" });
+  }
+
+  try {
+    const result = await pool.query("SELECT username FROM users WHERE id = $1", [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ username: result.rows[0].username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});

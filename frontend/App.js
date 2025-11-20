@@ -11,6 +11,7 @@ import HomeScreen from "./HomeScreen";
 import TeamViewScreen from "./TeamViewScreen";
 import CharCreation from "./CharCreation";
 import MatchmakingScreen from "./MatchmakingScreen";
+import BattleScreen from "./BattleScreen";
 
 const Stack = createNativeStackNavigator();
 export default function App() {
@@ -65,6 +66,11 @@ export default function App() {
           <Stack.Screen
             name="MatchmakingScreen"
             component={MatchmakingScreen}
+            options={{ headerBackTitleVisible: false, title: "" }}
+          />
+          <Stack.Screen
+            name="BattleScreen"
+            component={BattleScreen}
             options={{ headerBackTitleVisible: false, title: "" }}
           />
         </Stack.Navigator>
