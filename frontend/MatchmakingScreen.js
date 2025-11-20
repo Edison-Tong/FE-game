@@ -13,6 +13,9 @@ export default function MatchmakingScreen() {
   const [showHostModal, setShowHostModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [waitingDots, setWaitingDots] = useState(".");
+  const waitingAnimation = useRef(null);
+
   let pollingInterval = useRef(null);
 
   const navigation = useNavigation();
@@ -48,6 +51,7 @@ export default function MatchmakingScreen() {
       setRoomId(data.roomId);
       setRoomCode(data.code);
       setShowHostModal(true);
+      waitingAnimation.current = startWaitingAnimation();
 
       startPolling(data.roomId);
     } catch (err) {
@@ -63,6 +67,7 @@ export default function MatchmakingScreen() {
 
       if (data.joiner_id) {
         clearInterval(pollingInterval.current);
+        clearInterval(waitingAnimation.current);
         setShowHostModal(false);
 
         navigation.navigate("BattleScreen", {
@@ -74,6 +79,17 @@ export default function MatchmakingScreen() {
     }, 1500);
   };
 
+  const startWaitingAnimation = () => {
+    let dotCount = 1;
+
+    const interval = setInterval(() => {
+      dotCount = dotCount === 3 ? 1 : dotCount + 1;
+      setWaitingDots(".".repeat(dotCount));
+    }, 500);
+
+    return interval;
+  };
+
   const cancelRoom = async () => {
     try {
       await fetch(`${BACKEND_URL}/delete-room`, {
@@ -83,6 +99,7 @@ export default function MatchmakingScreen() {
       });
 
       clearInterval(pollingInterval.current);
+      clearInterval(waitingAnimation.current);
       setShowHostModal(false);
       setRoomId(null);
       setRoomCode("");
@@ -98,23 +115,17 @@ export default function MatchmakingScreen() {
       return;
     }
 
-    const res = await fetch(`${BACKEND_URL}/join-room`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: user.id,
-        code: joinCode,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (data.message === "Joined room") {
-      navigation.navigate("BattleScreen", {
-        roomId: data.roomId,
-        hostId: data.hostId,
-        joinerId: user.id,
+    try {
+      const res = await fetch(`${BACKEND_URL}/join-room`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          code: joinCode,
+        }),
       });
+
+      const data = await res.json();
 
       if (data.message === "Joined room") {
         setShowJoinModal(false);
@@ -125,9 +136,12 @@ export default function MatchmakingScreen() {
           hostId: data.hostId,
           joinerId: user.id,
         });
+      } else {
+        alert(data.message);
       }
-    } else {
-      alert(data.message);
+    } catch (err) {
+      console.log(err);
+      alert("Error joining room");
     }
   };
 
@@ -177,7 +191,7 @@ export default function MatchmakingScreen() {
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>Share This Code</Text>
               <Text style={styles.roomCode}>{roomCode}</Text>
-
+              <Text style={styles.waitingText}>Waiting for other player{waitingDots}</Text>
               <TouchableOpacity style={styles.cancelButton} onPress={cancelRoom}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -328,6 +342,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  waitingText: {
+    color: "#fff",
+    fontSize: 16,
+    marginBottom: 20,
+    letterSpacing: 1,
   },
   input: {
     width: "100%",
