@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Keyboard,
+  TextInput,
+  Animated,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "./AuthContext";
@@ -15,6 +24,9 @@ export default function MatchmakingScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [waitingDots, setWaitingDots] = useState(".");
   const waitingAnimation = useRef(null);
+  const leftSword = useRef(new Animated.Value(-20)).current;
+  const rightSword = useRef(new Animated.Value(20)).current;
+  const clashShake = useRef(new Animated.Value(0)).current;
 
   let pollingInterval = useRef(null);
 
@@ -51,7 +63,7 @@ export default function MatchmakingScreen() {
       setRoomId(data.roomId);
       setRoomCode(data.code);
       setShowHostModal(true);
-      waitingAnimation.current = startWaitingAnimation();
+      startWaitingAnimation();
 
       startPolling(data.roomId);
     } catch (err) {
@@ -67,7 +79,7 @@ export default function MatchmakingScreen() {
 
       if (data.joiner_id) {
         clearInterval(pollingInterval.current);
-        clearInterval(waitingAnimation.current);
+        clearTimeout(waitingAnimation.current);
         setShowHostModal(false);
 
         navigation.navigate("BattleScreen", {
@@ -80,14 +92,63 @@ export default function MatchmakingScreen() {
   };
 
   const startWaitingAnimation = () => {
-    let dotCount = 1;
+    const clash = () => {
+      leftSword.setValue(-20);
+      rightSword.setValue(20);
+      clashShake.setValue(0);
 
-    const interval = setInterval(() => {
-      dotCount = dotCount === 3 ? 1 : dotCount + 1;
-      setWaitingDots(".".repeat(dotCount));
-    }, 500);
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(leftSword, {
+            toValue: 30,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(rightSword, {
+            toValue: -30,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]),
 
-    return interval;
+        // CLASH SHAKE
+        Animated.sequence([
+          Animated.timing(clashShake, {
+            toValue: 10,
+            duration: 50,
+            useNativeDriver: true,
+          }),
+          Animated.timing(clashShake, {
+            toValue: -10,
+            duration: 50,
+            useNativeDriver: true,
+          }),
+          Animated.timing(clashShake, {
+            toValue: 0,
+            duration: 50,
+            useNativeDriver: true,
+          }),
+        ]),
+
+        // Reset
+        Animated.parallel([
+          Animated.timing(leftSword, {
+            toValue: -20,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(rightSword, {
+            toValue: 20,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(() => {
+        waitingAnimation.current = setTimeout(clash, 500);
+      });
+    };
+
+    clash();
   };
 
   const cancelRoom = async () => {
@@ -99,7 +160,7 @@ export default function MatchmakingScreen() {
       });
 
       clearInterval(pollingInterval.current);
-      clearInterval(waitingAnimation.current);
+      clearTimeout(waitingAnimation.current);
       setShowHostModal(false);
       setRoomId(null);
       setRoomCode("");
@@ -191,7 +252,32 @@ export default function MatchmakingScreen() {
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>Share This Code</Text>
               <Text style={styles.roomCode}>{roomCode}</Text>
-              <Text style={styles.waitingText}>Waiting for other player{waitingDots}</Text>
+              <Animated.View style={[styles.swordContainer, { transform: [{ translateX: clashShake }] }]}>
+                <Animated.Text
+                  style={[
+                    styles.sword,
+                    {
+                      transform: [{ translateX: leftSword }, { rotate: "-180deg" }],
+                    },
+                  ]}
+                >
+                  🗡️
+                </Animated.Text>
+
+                <Animated.Text
+                  style={[
+                    styles.sword,
+                    {
+                      transform: [{ translateX: rightSword }, { rotate: "90deg" }],
+                    },
+                  ]}
+                >
+                  🗡️
+                </Animated.Text>
+              </Animated.View>
+
+              <Text style={styles.waitingText}>Waiting for other player</Text>
+
               <TouchableOpacity style={styles.cancelButton} onPress={cancelRoom}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -343,11 +429,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  waitingText: {
-    color: "#fff",
-    fontSize: 16,
+  swordContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
-    letterSpacing: 1,
+    height: 60,
+  },
+
+  sword: {
+    fontSize: 40,
+    marginHorizontal: 10,
   },
   input: {
     width: "100%",
