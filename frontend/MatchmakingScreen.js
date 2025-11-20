@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard, TextInput } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "./AuthContext";
@@ -11,6 +11,7 @@ export default function MatchmakingScreen() {
   const [roomId, setRoomId] = useState(null);
   const [roomCode, setRoomCode] = useState("");
   const [showHostModal, setShowHostModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   let pollingInterval = useRef(null);
 
@@ -92,6 +93,11 @@ export default function MatchmakingScreen() {
   };
 
   const joinMatch = async () => {
+    if (!joinCode || joinCode.length < 4) {
+      alert("Enter a valid room code");
+      return;
+    }
+
     const res = await fetch(`${BACKEND_URL}/join-room`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,6 +115,17 @@ export default function MatchmakingScreen() {
         hostId: data.hostId,
         joinerId: user.id,
       });
+
+      if (data.message === "Joined room") {
+        setShowJoinModal(false);
+        setJoinCode("");
+
+        navigation.navigate("BattleScreen", {
+          roomId: data.roomId,
+          hostId: data.hostId,
+          joinerId: user.id,
+        });
+      }
     } else {
       alert(data.message);
     }
@@ -149,7 +166,7 @@ export default function MatchmakingScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={joinMatch}
+          onPress={() => setShowJoinModal(true)}
           style={[styles.buttons, !canPress && styles.disabledButton]}
           disabled={!canPress}
         >
@@ -162,6 +179,37 @@ export default function MatchmakingScreen() {
               <Text style={styles.roomCode}>{roomCode}</Text>
 
               <TouchableOpacity style={styles.cancelButton} onPress={cancelRoom}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {showJoinModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Enter Room Code</Text>
+
+              <TextInput
+                value={joinCode}
+                onChangeText={setJoinCode}
+                placeholder="ABC123"
+                placeholderTextColor="#777"
+                style={styles.input}
+                autoCapitalize="characters"
+                maxLength={6}
+              />
+
+              <TouchableOpacity style={styles.buttons} onPress={joinMatch}>
+                <Text style={styles.buttonText}>Join Match</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.cancelButton, { marginTop: 10 }]}
+                onPress={() => {
+                  setShowJoinModal(false);
+                  setJoinCode("");
+                }}
+              >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -280,5 +328,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#D4B36C",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    color: "#fff",
+    fontSize: 18,
+    textAlign: "center",
+    letterSpacing: 3,
   },
 });
