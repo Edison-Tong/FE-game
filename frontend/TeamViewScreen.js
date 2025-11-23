@@ -61,6 +61,11 @@ export default function TeamViewScreen() {
 
             if (data.success) {
               alert("Character deleted successfully");
+              await fetch(`${BACKEND_URL}/decrement-char-count`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ teamId }),
+              });
 
               setCharacters((prev) => prev.filter((c) => c.id !== characterId));
             } else {

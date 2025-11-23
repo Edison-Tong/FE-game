@@ -208,6 +208,25 @@ app.patch("/increment-char-count", async (req, res) => {
   }
 });
 
+app.patch("/decrement-char-count", async (req, res) => {
+  const { teamId } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE teams
+       SET char_count = GREATEST(char_count - 1, 0)
+       WHERE id = $1
+       RETURNING char_count`,
+      [teamId]
+    );
+
+    res.json({ success: true, newCount: result.rows[0].char_count });
+  } catch (err) {
+    console.error("Error decrementing character count:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 //get completed teams
 app.get("/get-finished-teams", async (req, res) => {
   const { userId } = req.query;
