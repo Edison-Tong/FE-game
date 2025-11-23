@@ -303,12 +303,14 @@ export default function MatchmakingScreen() {
 
               <TextInput
                 value={joinCode}
-                onChangeText={setJoinCode}
-                placeholder="ABC123"
+                onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                placeholder="ABCD"
                 placeholderTextColor="#777"
                 style={styles.input}
                 autoCapitalize="characters"
-                maxLength={6}
+                autoCorrect={false}
+                maxLength={4}
+                keyboardType="default"
               />
 
               <TouchableOpacity style={styles.buttons} onPress={joinMatch}>
