@@ -49,7 +49,7 @@ export default function App() {
                   }
                 />
               ),
-              headerRight: () => <Button title="Battle" onPress={() => navigation.navigate("MatchmakingScreen")} />,
+              headerRight: () => <Button title="Battle" onPress={() => navigation.navigate("GameLobby")} />,
             })}
           />
 
