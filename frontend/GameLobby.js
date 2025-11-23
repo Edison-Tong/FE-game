@@ -12,7 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
-export default function MatchmakingScreen() {
+export default function GameLobby() {
   const { user } = useContext(AuthContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);

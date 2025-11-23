@@ -10,7 +10,7 @@ import Register from "./Register";
 import HomeScreen from "./HomeScreen";
 import TeamViewScreen from "./TeamViewScreen";
 import CharCreation from "./CharCreation";
-import MatchmakingScreen from "./MatchmakingScreen";
+import GameLobby from "./GameLobby";
 import BattleScreen from "./BattleScreen";
 
 const Stack = createNativeStackNavigator();
@@ -63,11 +63,7 @@ export default function App() {
             component={CharCreation}
             options={{ headerBackTitleVisible: false, title: "" }}
           />
-          <Stack.Screen
-            name="MatchmakingScreen"
-            component={MatchmakingScreen}
-            options={{ headerBackTitleVisible: false, title: "" }}
-          />
+          <Stack.Screen name="GameLobby" component={GameLobby} options={{ headerBackTitleVisible: false, title: "" }} />
           <Stack.Screen
             name="BattleScreen"
             component={BattleScreen}
