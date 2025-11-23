@@ -340,3 +340,38 @@ app.get("/get-user", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// Delete character
+app.delete("/delete-character", async (req, res) => {
+  const { characterId } = req.body;
+
+  if (!characterId) {
+    return res.status(400).json({
+      success: false,
+      message: "No characterId provided",
+    });
+  }
+
+  try {
+    const result = await pool.query("DELETE FROM characters WHERE id = $1 RETURNING *", [characterId]);
+
+    if (result.rowCount === 0) {
+      return res.json({
+        success: false,
+        message: "Character not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Character deleted",
+      deleted: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Error deleting character:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});

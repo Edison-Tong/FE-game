@@ -207,6 +207,7 @@ export default function CharCreation() {
             style={[styles.charName, invalidFields.includes("name") && styles.invalidInput]}
             placeholder={"character name"}
             value={name}
+            autoCorrect={false}
             onChangeText={(text) => {
               setName(text);
               setInvalidFields((prev) => prev.filter((f) => f !== "name"));
@@ -216,6 +217,7 @@ export default function CharCreation() {
             style={[styles.charLabel, invalidFields.includes("label") && styles.invalidInput]}
             placeholder={"character label"}
             value={label}
+            autoCorrect={false}
             onChangeText={(text) => {
               setLabel(text);
               setInvalidFields((prev) => prev.filter((f) => f !== "label"));

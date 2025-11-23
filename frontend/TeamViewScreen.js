@@ -1,6 +1,7 @@
 import React from "react";
 import PagerView from "react-native-pager-view";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { FontAwesome } from "@expo/vector-icons";
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useEffect, useState, useMemo } from "react";
 import { BACKEND_URL } from "@env";
@@ -39,11 +40,49 @@ export default function TeamViewScreen() {
     fetchCharacters();
   }, []);
 
+  const deleteCharacter = (characterId) => {
+    Alert.alert("Delete Character", "Are you sure you want to delete this character?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const res = await fetch(`${BACKEND_URL}/delete-character`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ characterId }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+              alert("Character deleted successfully");
+
+              setCharacters((prev) => prev.filter((c) => c.id !== characterId));
+            } else {
+              alert("Could not delete character");
+            }
+          } catch (err) {
+            console.log(err);
+            alert("Error deleting character");
+          }
+        },
+      },
+    ]);
+  };
+
   const pages = characters.map((character, i) => (
     <View key={i} style={styles.container}>
       <View style={styles.charCard}>
         <Text style={styles.charName}>{character.name}</Text>
         <Text style={styles.charLabel}>{character.label}</Text>
+        <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteCharacter(character.id)}>
+          <FontAwesome name="trash" size={24} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.charImage}>
           <Text>Character Image</Text>
         </View>
@@ -193,6 +232,27 @@ const styles = StyleSheet.create({
     top: "1%",
     left: "60%",
     color: "#F5F5F5",
+    fontWeight: "bold",
+  },
+  deleteBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "#C94A4A",
+    height: 35,
+    width: 35,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+    elevation: 6,
+  },
+  deleteText: {
+    color: "#fff",
+    fontSize: 18,
     fontWeight: "bold",
   },
   charImage: {

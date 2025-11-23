@@ -300,7 +300,6 @@ export default function MatchmakingScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>Enter Room Code</Text>
-
               <TextInput
                 value={joinCode}
                 onChangeText={(text) => setJoinCode(text.toUpperCase())}
@@ -312,7 +311,6 @@ export default function MatchmakingScreen() {
                 maxLength={4}
                 keyboardType="default"
               />
-
               <TouchableOpacity style={styles.buttons} onPress={joinMatch}>
                 <Text style={styles.buttonText}>Join Match</Text>
               </TouchableOpacity>
