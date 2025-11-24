@@ -82,11 +82,7 @@ export default function App() {
                       {
                         text: "Yes, Leave",
                         style: "destructive",
-                        onPress: () =>
-                          navigation.reset({
-                            index: 0,
-                            routes: [{ name: "GameLobby" }],
-                          }),
+                        onPress: () => navigation.pop(1),
                       },
                     ]);
                   }}
