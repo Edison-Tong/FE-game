@@ -8,7 +8,6 @@ export default function BattleScreen() {
   const route = useRoute();
   const { hostId, joinerId, userId } = route.params;
   const [opponentName, setOpponentName] = useState("");
-
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
   const opponentId = isHost ? joinerId : hostId;

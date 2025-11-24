@@ -2,7 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AuthProvider } from "./AuthContext";
 import { useEffect } from "react";
-import { Button } from "react-native";
+import { Button, Alert } from "react-native";
 import { BACKEND_URL } from "@env";
 
 import Login from "./Login";
@@ -67,7 +67,32 @@ export default function App() {
           <Stack.Screen
             name="BattleScreen"
             component={BattleScreen}
-            options={{ headerBackTitleVisible: false, title: "" }}
+            options={({ navigation }) => ({
+              headerBackVisible: false,
+              title: "",
+              headerLeft: () => (
+                <Button
+                  title="Leave Room"
+                  onPress={() => {
+                    Alert.alert("Leave Battle", "Are you sure you want to leave the battle? This cannot be undone.", [
+                      {
+                        text: "Cancel",
+                        style: "cancel",
+                      },
+                      {
+                        text: "Yes, Leave",
+                        style: "destructive",
+                        onPress: () =>
+                          navigation.reset({
+                            index: 0,
+                            routes: [{ name: "GameLobby" }],
+                          }),
+                      },
+                    ]);
+                  }}
+                />
+              ),
+            })}
           />
         </Stack.Navigator>
       </NavigationContainer>
