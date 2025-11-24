@@ -16,6 +16,11 @@ export default function GameLobby() {
   const { user } = useContext(AuthContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [previewTeam, setPreviewTeam] = useState(null);
+  const [previewChars, setPreviewChars] = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
+
   const [canPress, setCanPress] = useState(false);
   const [roomId, setRoomId] = useState(null);
   const [roomCode, setRoomCode] = useState("");
@@ -57,6 +62,31 @@ export default function GameLobby() {
     setSelectedTeam(teamId);
     setCanPress(true);
   }
+
+  const handleLongPress = async (team, event) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/get-characters?teamId=${team.id}`);
+      const data = await res.json();
+      const { pageX, pageY } = event.nativeEvent;
+
+      setPreviewPos({
+        x: pageX,
+        y: pageY,
+      });
+
+      setPreviewTeam(team);
+      setPreviewChars(data.characters);
+      setShowPreview(true);
+    } catch (err) {
+      console.log("Preview error:", err);
+    }
+  };
+
+  const handleRelease = () => {
+    setShowPreview(false);
+    setPreviewTeam(null);
+    setPreviewChars([]);
+  };
 
   const hostMatch = async () => {
     try {
@@ -102,6 +132,9 @@ export default function GameLobby() {
   };
 
   const startWaitingAnimation = () => {
+    Animated.parallel([leftSword.stopAnimation(), rightSword.stopAnimation(), clashShake.stopAnimation()]);
+    clearTimeout(waitingAnimation.current);
+
     const clash = () => {
       leftSword.setValue(-20);
       rightSword.setValue(20);
@@ -235,6 +268,9 @@ export default function GameLobby() {
                 <TouchableOpacity
                   key={team.id}
                   onPress={() => chooseATeam(team.id)}
+                  onLongPress={(e) => handleLongPress(team, e)}
+                  onPressOut={() => handleRelease()}
+                  delayLongPress={300}
                   style={[styles.buttons, selectedTeam === team.id ? styles.selectedTeam : styles.team]}
                 >
                   <Text style={styles.buttonText}>{team.team_name}</Text>
@@ -327,6 +363,26 @@ export default function GameLobby() {
             </View>
           </View>
         )}
+        {showPreview && previewTeam && (
+          <View
+            style={[
+              styles.previewPopup,
+              {
+                position: "absolute",
+                left: previewPos.x - 120,
+                top: previewPos.y - 350,
+              },
+            ]}
+          >
+            {previewChars.map((char) => (
+              <Text key={char.id} style={{ color: "#D4B36C", marginVertical: 4 }}>
+                {char.name} — {char.base_weapon}
+              </Text>
+            ))}
+
+            <Text style={{ color: "#777", marginTop: 15 }}>(Release to close)</Text>
+          </View>
+        )}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -410,7 +466,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalBox: {
-    width: 300,
+    width: "80%",
     padding: 25,
     backgroundColor: "#2B2B2B",
     borderRadius: 20,
@@ -422,6 +478,18 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontWeight: "bold",
   },
+  previewPopup: {
+    display: "flex",
+    width: 240,
+    padding: 12,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#D4B36C",
+    zIndex: 9999,
+    elevation: 10,
+  },
+
   roomCode: {
     color: "#D4B36C",
     fontSize: 40,
