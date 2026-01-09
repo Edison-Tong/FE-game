@@ -245,23 +245,24 @@ app.get("/get-finished-teams", async (req, res) => {
 
 // Start hosting a game
 app.post("/create-room", async (req, res) => {
-  const { userId } = req.body;
+  const { userId, teamId } = req.body;
 
   // Generate 4-character code
   const code = Math.random().toString(36).substring(2, 6).toUpperCase();
 
   try {
     const result = await pool.query(
-      `INSERT INTO rooms (host_id, code)
-       VALUES ($1, $2)
-       RETURNING id, code`,
-      [userId, code]
+      `INSERT INTO rooms (host_id, host_team_id, code)
+       VALUES ($1, $2, $3)
+       RETURNING id, code, host_team_id`,
+      [userId, teamId, code]
     );
 
     res.json({
       message: "Room created",
       roomId: result.rows[0].id,
       code: result.rows[0].code,
+      hostTeamId: result.rows[0].host_team_id,
     });
   } catch (err) {
     console.error("Error creating room:", err);
@@ -271,7 +272,7 @@ app.post("/create-room", async (req, res) => {
 
 // join a hosted game
 app.post("/join-room", async (req, res) => {
-  const { userId, code } = req.body;
+  const { userId, code, teamId } = req.body;
 
   try {
     // Find room by code
@@ -287,13 +288,14 @@ app.post("/join-room", async (req, res) => {
       return res.status(409).json({ message: "Room already full" });
     }
 
-    // Update room to link joiner
-    await pool.query("UPDATE rooms SET joiner_id = $1 WHERE id = $2", [userId, room.id]);
+    // Update room to link joiner and joiner team
+    await pool.query("UPDATE rooms SET joiner_id = $1, joiner_team_id = $2 WHERE id = $3", [userId, teamId, room.id]);
 
     res.json({
       message: "Joined room",
       roomId: room.id,
       hostId: room.host_id,
+      hostTeamId: room.host_team_id,
     });
   } catch (err) {
     console.error("Error joining room:", err);
@@ -306,7 +308,10 @@ app.get("/room-status", async (req, res) => {
   const { roomId } = req.query;
 
   try {
-    const result = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    const result = await pool.query(
+      "SELECT host_id, joiner_id, host_team_id, joiner_team_id FROM rooms WHERE id = $1",
+      [roomId]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Room not found" });
@@ -392,5 +397,114 @@ app.delete("/delete-character", async (req, res) => {
       success: false,
       message: "Server error",
     });
+  }
+});
+
+// Duplicate a team with all its characters for battle
+app.post("/duplicate-team", async (req, res) => {
+  const { teamId, userId } = req.body;
+
+  if (!teamId || !userId) {
+    return res.status(400).json({ message: "Missing teamId or userId" });
+  }
+
+  try {
+    // Get the original team
+    const teamResult = await pool.query("SELECT * FROM teams WHERE id = $1 AND user_id = $2", [teamId, userId]);
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    const originalTeam = teamResult.rows[0];
+
+    // Create a new team with "[BATTLE]" prefix
+    const newTeamName = `[BATTLE] ${originalTeam.team_name} ${Date.now()}`;
+    const newTeamResult = await pool.query(
+      "INSERT INTO teams (user_id, team_name, char_count) VALUES ($1, $2, $3) RETURNING id, team_name, user_id, char_count",
+      [userId, newTeamName, originalTeam.char_count]
+    );
+
+    const newTeam = newTeamResult.rows[0];
+
+    // Get all characters from original team
+    const charsResult = await pool.query("SELECT * FROM characters WHERE team_id = $1", [teamId]);
+
+    const originalChars = charsResult.rows;
+
+    // Duplicate each character to the new team
+    const duplicatedChars = [];
+    for (const char of originalChars) {
+      const dupCharResult = await pool.query(
+        `INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+         RETURNING id, team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size`,
+        [
+          newTeam.id,
+          char.name,
+          char.label,
+          char.type,
+          char.move_value,
+          char.base_weapon,
+          char.weapon_ability1,
+          char.weapon_ability2,
+          char.health,
+          char.strength,
+          char.defense,
+          char.magick,
+          char.resistance,
+          char.speed,
+          char.skill,
+          char.knowledge,
+          char.luck,
+          char.size,
+        ]
+      );
+      duplicatedChars.push(dupCharResult.rows[0]);
+    }
+
+    res.json({
+      message: "Team duplicated successfully",
+      newTeam: newTeam,
+      characters: duplicatedChars,
+    });
+  } catch (err) {
+    console.error("Error duplicating team:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get opponent's team for battle display
+app.get("/get-opponent-team", async (req, res) => {
+  const { opponentId, battleTeamId } = req.query;
+
+  if (!opponentId || !battleTeamId) {
+    return res.status(400).json({ message: "Missing opponentId or battleTeamId" });
+  }
+
+  try {
+    // Get opponent's team name
+    const teamResult = await pool.query("SELECT id, team_name FROM teams WHERE id = $1 AND user_id = $2", [
+      battleTeamId,
+      opponentId,
+    ]);
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ message: "Opponent team not found" });
+    }
+
+    // Get all characters in opponent's team
+    const charsResult = await pool.query(
+      "SELECT id, team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size FROM characters WHERE team_id = $1",
+      [battleTeamId]
+    );
+
+    res.json({
+      team: teamResult.rows[0],
+      characters: charsResult.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching opponent team:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
