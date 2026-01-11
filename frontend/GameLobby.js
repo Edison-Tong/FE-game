@@ -90,27 +90,10 @@ export default function GameLobby() {
 
   const hostMatch = async () => {
     try {
-      // First, duplicate the team for battle
-      const dupRes = await fetch(`${BACKEND_URL}/duplicate-team`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: selectedTeam, userId: user.id }),
-      });
-
-      const dupData = await dupRes.json();
-
-      if (!dupData.newTeam || !dupData.newTeam.id) {
-        alert("Error duplicating team");
-        return;
-      }
-
-      const battleTeamId = dupData.newTeam.id;
-
-      // Now create the room with the duplicated team
       const res = await fetch(`${BACKEND_URL}/create-room`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, teamId: battleTeamId }),
+        body: JSON.stringify({ userId: user.id, teamId: selectedTeam }),
       });
 
       const data = await res.json();
@@ -120,14 +103,14 @@ export default function GameLobby() {
       setShowHostModal(true);
       startWaitingAnimation();
 
-      startPolling(data.roomId, battleTeamId);
+      startPolling(data.roomId);
     } catch (err) {
       alert("Error hosting match");
       console.log(err);
     }
   };
 
-  const startPolling = (roomId, battleTeamId) => {
+  const startPolling = (roomId) => {
     pollingInterval.current = setInterval(async () => {
       const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
       const data = await res.json();
@@ -137,18 +120,13 @@ export default function GameLobby() {
         clearTimeout(waitingAnimation.current);
         setShowHostModal(false);
 
-        const opponentTeamId = isHost ? data.joiner_team_id : data.host_team_id;
-        const opponentId = isHost ? data.joiner_id : data.host_id;
-
         // When hosting:
         navigation.navigate("BattleScreen", {
           roomId,
           hostId: data.host_id,
           joinerId: data.joiner_id,
           userId: user.id,
-          battleTeamId,
-          opponentTeamId,
-          opponentId,
+          teamId: selectedTeam,
         });
       }
     }, 1500);
@@ -243,23 +221,6 @@ export default function GameLobby() {
     }
 
     try {
-      // First, duplicate the team for battle
-      const dupRes = await fetch(`${BACKEND_URL}/duplicate-team`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: selectedTeam, userId: user.id }),
-      });
-
-      const dupData = await dupRes.json();
-
-      if (!dupData.newTeam || !dupData.newTeam.id) {
-        alert("Error duplicating team");
-        return;
-      }
-
-      const battleTeamId = dupData.newTeam.id;
-
-      // Now join the room with the duplicated team
       const res = await fetch(`${BACKEND_URL}/join-room`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -275,18 +236,12 @@ export default function GameLobby() {
         setShowJoinModal(false);
         setJoinCode("");
 
-        const opponentId = data.hostId;
-        const opponentTeamId = data.hostTeamId;
-
         // When joining:
         navigation.navigate("BattleScreen", {
           roomId: data.roomId,
           hostId: data.hostId,
           joinerId: user.id,
           userId: user.id,
-          battleTeamId,
-          opponentTeamId,
-          opponentId,
         });
       } else {
         alert(data.message);

@@ -6,10 +6,8 @@ import { BACKEND_URL } from "@env";
 
 export default function BattleScreen() {
   const route = useRoute();
-  const { hostId, joinerId, userId, battleTeamId, opponentTeamId, opponentId } = route.params;
+  const { hostId, joinerId, userId } = route.params;
   const [myTeam, setMyTeam] = useState(null);
-  const [opponentTeam, setOpponentTeam] = useState(null);
-  const [opponentName, setOpponentName] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
@@ -17,25 +15,18 @@ export default function BattleScreen() {
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-        // Get my team
-        const myRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${battleTeamId}`);
-        const myData = await myRes.json();
-        setMyTeam(myData.characters);
+        // Get user's teams and use the first completed team
+        const teamsRes = await fetch(`${BACKEND_URL}/get-finished-teams?userId=${userId}`);
+        const teamsData = await teamsRes.json();
 
-        // Get opponent's username
-        const userRes = await fetch(`${BACKEND_URL}/get-user?userId=${opponentId}`);
-        const userData = await userRes.json();
-        setOpponentName(userData.username);
-
-        // Get opponent's team
-        const oppRes = await fetch(
-          `${BACKEND_URL}/get-opponent-team?opponentId=${opponentId}&battleTeamId=${opponentTeamId}`
-        );
-        const oppData = await oppRes.json();
-        setOpponentTeam(oppData.characters);
+        if (teamsData.teams && teamsData.teams.length > 0) {
+          const teamId = teamsData.teams[0].id;
+          const charRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${teamId}`);
+          const charData = await charRes.json();
+          setMyTeam(charData.characters);
+        }
       } catch (err) {
         console.log("Error fetching battle data:", err);
-        setOpponentName("Unknown");
       }
     };
 
@@ -113,34 +104,17 @@ export default function BattleScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.teamSection}>
-          <Text style={styles.title}>{myName}</Text>
-          <Text style={styles.teamCount}>{myTeam ? myTeam.length : 0} characters</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.teamSection}>
-          <Text style={styles.title}>{opponentName}</Text>
-          <Text style={styles.teamCount}>{opponentTeam ? opponentTeam.length : 0} characters</Text>
-        </View>
+        <Text style={styles.title}>{myName}</Text>
+        <Text style={styles.teamCount}>{myTeam ? myTeam.length : 0} characters</Text>
       </View>
 
       <ScrollView style={styles.teamsContainer} scrollEnabled={true} horizontal={false}>
-        <View style={styles.teamsWrapper}>
-          <View style={styles.teamColumn}>
-            <Text style={styles.sectionTitle}>Your Team</Text>
-            {myTeam &&
-              myTeam.map((char) => (
-                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
-              ))}
-          </View>
-
-          <View style={styles.teamColumn}>
-            <Text style={styles.sectionTitle}>Opponent Team</Text>
-            {opponentTeam &&
-              opponentTeam.map((char) => (
-                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
-              ))}
-          </View>
+        <View style={styles.teamColumn}>
+          <Text style={styles.sectionTitle}>Your Team</Text>
+          {myTeam &&
+            myTeam.map((char) => (
+              <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
+            ))}
         </View>
       </ScrollView>
 
@@ -174,21 +148,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#2B2B2B",
   },
   header: {
-    flexDirection: "row",
     backgroundColor: "#1a1a1a",
     padding: 15,
-    justifyContent: "space-around",
+    justifyContent: "center",
     alignItems: "center",
-  },
-  teamSection: {
-    flex: 1,
-    alignItems: "center",
-  },
-  divider: {
-    width: 2,
-    height: 50,
-    backgroundColor: "#C9A66B",
-    marginHorizontal: 10,
   },
   title: {
     fontSize: 18,
@@ -203,9 +166,6 @@ const styles = StyleSheet.create({
   teamsContainer: {
     flex: 1,
     padding: 10,
-  },
-  teamsWrapper: {
-    flexDirection: "row",
   },
   teamColumn: {
     flex: 1,
