@@ -33,13 +33,19 @@ export default function BattleScreen() {
     fetchTeams();
   }, []);
 
-  const CompactCharacter = ({ character, onPress }) => (
-    <TouchableOpacity style={styles.compactCard} onPress={onPress}>
-      <Text style={styles.charNameCompact}>{character.name}</Text>
-      <Text style={styles.charTypeCompact}>{character.type}</Text>
-      <Text style={styles.hpCompact}>HP: {character.health}</Text>
-    </TouchableOpacity>
-  );
+  const CompactCharacter = ({ character, onPress }) => {
+    const typeColor = character.type && character.type.toLowerCase() === "mage" ? "#9D4EDD" : "#FF0000";
+    return (
+      <TouchableOpacity style={styles.compactCard} onPress={onPress}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.charNameCompact}>{character.name}</Text>
+          <View style={[styles.typeIndicator, { backgroundColor: typeColor }]} />
+        </View>
+        <Text style={styles.charTypeCompact}>{character.type}</Text>
+        <Text style={styles.hpCompact}>HP: {character.health}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const DetailedStats = ({ character }) => (
     <ScrollView style={styles.statsContainer}>
@@ -48,42 +54,46 @@ export default function BattleScreen() {
         {character.label} • {character.type}
       </Text>
 
-      <View style={styles.statsGrid}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>HP</Text>
-          <Text style={styles.statValueDetailed}>{character.health}</Text>
+      <View style={styles.hpBarContainer}>
+        <View style={styles.hpBarLabelRow}>
+          <Text style={styles.hpBarSideLabel}>0</Text>
+          <Text style={styles.hpBarTitle}>HP</Text>
+          <Text style={styles.hpBarSideLabel}>{character.health}</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>STR</Text>
-          <Text style={styles.statValueDetailed}>{character.strength}</Text>
+        <View style={styles.hpBarBackground}>
+          <View style={[styles.hpBarFill, { width: "100%" }]} />
+          <View style={styles.ticksContainer}>
+            {Array.from({ length: character.health }).map((_, i) => (
+              <View key={i} style={styles.tick} />
+            ))}
+          </View>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>DEF</Text>
-          <Text style={styles.statValueDetailed}>{character.defense}</Text>
+      </View>
+
+      <View style={styles.statsListContainer}>
+        <View style={styles.statRow}>
+          <Text style={styles.statLabelList}>STR</Text>
+          <Text style={styles.statValueList}>{character.strength}</Text>
+          <Text style={styles.statLabelList}>DEF</Text>
+          <Text style={styles.statValueList}>{character.defense}</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>MAG</Text>
-          <Text style={styles.statValueDetailed}>{character.magick}</Text>
+        <View style={styles.statRow}>
+          <Text style={styles.statLabelList}>MAG</Text>
+          <Text style={styles.statValueList}>{character.magick}</Text>
+          <Text style={styles.statLabelList}>RES</Text>
+          <Text style={styles.statValueList}>{character.resistance}</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>RES</Text>
-          <Text style={styles.statValueDetailed}>{character.resistance}</Text>
+        <View style={styles.statRow}>
+          <Text style={styles.statLabelList}>SPD</Text>
+          <Text style={styles.statValueList}>{character.speed}</Text>
+          <Text style={styles.statLabelList}>SKL</Text>
+          <Text style={styles.statValueList}>{character.skill}</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>SPD</Text>
-          <Text style={styles.statValueDetailed}>{character.speed}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>SKL</Text>
-          <Text style={styles.statValueDetailed}>{character.skill}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>KNL</Text>
-          <Text style={styles.statValueDetailed}>{character.knowledge}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabelDetailed}>LCK</Text>
-          <Text style={styles.statValueDetailed}>{character.luck}</Text>
+        <View style={styles.statRow}>
+          <Text style={styles.statLabelList}>KNL</Text>
+          <Text style={styles.statValueList}>{character.knowledge}</Text>
+          <Text style={styles.statLabelList}>LCK</Text>
+          <Text style={styles.statValueList}>{character.luck}</Text>
         </View>
       </View>
 
@@ -186,10 +196,17 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "#C9A66B",
   },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   charNameCompact: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#FFD700",
+    flex: 1,
   },
   charTypeCompact: {
     fontSize: 12,
@@ -246,31 +263,78 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 12,
     color: "#C9A66B",
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  statsGrid: {
+  hpBarContainer: {
+    marginBottom: 12,
+  },
+  hpBarLabelRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 10,
     justifyContent: "space-between",
-  },
-  statBox: {
-    width: "30%",
-    backgroundColor: "#3C3C3C",
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 6,
     alignItems: "center",
+    marginBottom: 4,
   },
-  statLabelDetailed: {
+  hpBarTitle: {
+    fontSize: 11,
+    color: "#C9A66B",
+    fontWeight: "600",
+  },
+  hpBarSideLabel: {
     fontSize: 10,
-    color: "#AAA",
+    color: "#fff",
+    fontWeight: "500",
+    width: 24,
+    textAlign: "center",
   },
-  statValueDetailed: {
-    fontSize: 13,
+  hpBarBackground: {
+    height: 16,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#444",
+    position: "relative",
+  },
+  hpBarFill: {
+    height: "100%",
+    backgroundColor: "#00FF00",
+  },
+  ticksContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    paddingHorizontal: 0,
+  },
+  tick: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    marginHorizontal: 0.5,
+  },
+  statsListContainer: {
+    marginBottom: 8,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    marginBottom: 4,
+  },
+  statLabelList: {
+    fontSize: 11,
+    color: "#C9A66B",
+    fontWeight: "600",
+    width: "25%",
+  },
+  statValueList: {
+    fontSize: 12,
     fontWeight: "bold",
     color: "#fff",
-    marginTop: 2,
+    width: "25%",
   },
   weaponSection: {
     backgroundColor: "#3C3C3C",
