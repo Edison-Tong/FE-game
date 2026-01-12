@@ -4,13 +4,139 @@ import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 
+// Hardcoded test opponent team
+const TEST_OPPONENT_TEAM = [
+  {
+    id: 1,
+    name: "Test Warrior 1",
+    label: "Warrior",
+    type: "warrior",
+    health: 35,
+    strength: 18,
+    defense: 12,
+    magick: 4,
+    resistance: 8,
+    speed: 10,
+    skill: 12,
+    knowledge: 5,
+    luck: 8,
+    base_weapon: "Sword",
+    weapon_ability1: "Slash - Attacks adjacent enemy",
+    weapon_ability2: "Parry - Defensive stance",
+    move_value: 5,
+    size: "Medium",
+  },
+  {
+    id: 2,
+    name: "Test Mage 1",
+    label: "Mage",
+    type: "mage",
+    health: 22,
+    strength: 6,
+    defense: 6,
+    magick: 20,
+    resistance: 14,
+    speed: 11,
+    skill: 9,
+    knowledge: 16,
+    luck: 10,
+    base_weapon: "Fire",
+    weapon_ability1: "Fireball - AOE damage",
+    weapon_ability2: "Flame Shield - Reflect damage",
+    move_value: 4,
+    size: "Small",
+  },
+  {
+    id: 3,
+    name: "Test Warrior 2",
+    label: "Knight",
+    type: "warrior",
+    health: 38,
+    strength: 16,
+    defense: 15,
+    magick: 3,
+    resistance: 10,
+    speed: 8,
+    skill: 11,
+    knowledge: 4,
+    luck: 7,
+    base_weapon: "Lance",
+    weapon_ability1: "Thrust - Pierce defense",
+    weapon_ability2: "Guard - Reduce damage",
+    move_value: 5,
+    size: "Medium",
+  },
+  {
+    id: 4,
+    name: "Test Mage 2",
+    label: "Sorcerer",
+    type: "mage",
+    health: 20,
+    strength: 5,
+    defense: 5,
+    magick: 22,
+    resistance: 12,
+    speed: 12,
+    skill: 10,
+    knowledge: 18,
+    luck: 11,
+    base_weapon: "Water",
+    weapon_ability1: "Blizzard - Slow target",
+    weapon_ability2: "Freeze - Stun chance",
+    move_value: 4,
+    size: "Small",
+  },
+  {
+    id: 5,
+    name: "Test Archer",
+    label: "Ranger",
+    type: "warrior",
+    health: 28,
+    strength: 15,
+    defense: 9,
+    magick: 7,
+    resistance: 9,
+    speed: 13,
+    skill: 14,
+    knowledge: 8,
+    luck: 12,
+    base_weapon: "Bow",
+    weapon_ability1: "Arrow Shot - Range attack",
+    weapon_ability2: "Multishot - Hit twice",
+    move_value: 6,
+    size: "Small",
+  },
+  {
+    id: 6,
+    name: "Test Paladin",
+    label: "Holy Knight",
+    type: "warrior",
+    health: 32,
+    strength: 17,
+    defense: 13,
+    magick: 10,
+    resistance: 13,
+    speed: 9,
+    skill: 11,
+    knowledge: 11,
+    luck: 14,
+    base_weapon: "Axe",
+    weapon_ability1: "Smash - Heavy damage",
+    weapon_ability2: "Divine Shield - Block",
+    move_value: 5,
+    size: "Medium",
+  },
+];
+
 export default function BattleScreen() {
   const route = useRoute();
   const { hostId, joinerId, userId } = route.params;
   const [myTeam, setMyTeam] = useState(null);
+  const [opponentTeam, setOpponentTeam] = useState(null);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
+  const opponentName = isHost ? "Opponent" : "Host";
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -25,13 +151,18 @@ export default function BattleScreen() {
           const charData = await charRes.json();
           setMyTeam(charData.characters);
         }
+
+        // Check if there's a host - if no hostId, use the hardcoded test team
+        if (!hostId) {
+          setOpponentTeam(TEST_OPPONENT_TEAM);
+        }
       } catch (err) {
         console.log("Error fetching battle data:", err);
       }
     };
 
     fetchTeams();
-  }, []);
+  }, [hostId]);
 
   const CompactCharacter = ({ character, onPress }) => {
     const typeColor = character.type && character.type.toLowerCase() === "mage" ? "#9D4EDD" : "#FF0000";
@@ -114,17 +245,34 @@ export default function BattleScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{myName}</Text>
-        <Text style={styles.teamCount}>{myTeam ? myTeam.length : 0} characters</Text>
+        <View style={styles.teamSection}>
+          <Text style={styles.title}>{myName}</Text>
+          <Text style={styles.teamCount}>{myTeam ? myTeam.length : 0} characters</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.teamSection}>
+          <Text style={styles.title}>{opponentName}</Text>
+          <Text style={styles.teamCount}>{opponentTeam ? opponentTeam.length : 0} characters</Text>
+        </View>
       </View>
 
       <ScrollView style={styles.teamsContainer} scrollEnabled={true} horizontal={false}>
-        <View style={styles.teamColumn}>
-          <Text style={styles.sectionTitle}>Your Team</Text>
-          {myTeam &&
-            myTeam.map((char) => (
-              <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
-            ))}
+        <View style={styles.teamsWrapper}>
+          <View style={styles.teamColumn}>
+            <Text style={styles.sectionTitle}>Your Team</Text>
+            {myTeam &&
+              myTeam.map((char) => (
+                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
+              ))}
+          </View>
+
+          <View style={styles.teamColumn}>
+            <Text style={styles.sectionTitle}>{opponentName} Team</Text>
+            {opponentTeam &&
+              opponentTeam.map((char) => (
+                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
+              ))}
+          </View>
         </View>
       </ScrollView>
 
@@ -158,10 +306,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#2B2B2B",
   },
   header: {
+    flexDirection: "row",
     backgroundColor: "#1a1a1a",
     padding: 15,
-    justifyContent: "center",
+    justifyContent: "space-around",
     alignItems: "center",
+  },
+  teamSection: {
+    flex: 1,
+    alignItems: "center",
+  },
+  divider: {
+    width: 2,
+    height: 50,
+    backgroundColor: "#C9A66B",
+    marginHorizontal: 10,
   },
   title: {
     fontSize: 18,
@@ -176,6 +335,9 @@ const styles = StyleSheet.create({
   teamsContainer: {
     flex: 1,
     padding: 10,
+  },
+  teamsWrapper: {
+    flexDirection: "row",
   },
   teamColumn: {
     flex: 1,
