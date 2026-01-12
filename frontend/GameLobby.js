@@ -110,6 +110,17 @@ export default function GameLobby() {
     }
   };
 
+  // Helper to duplicate a team for battle
+  const duplicateTeamForBattle = async (teamId) => {
+    const res = await fetch(`${BACKEND_URL}/duplicate-team-for-battle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId, userId: user.id }),
+    });
+    const data = await res.json();
+    return data.newTeamId;
+  };
+
   const startPolling = (roomId) => {
     pollingInterval.current = setInterval(async () => {
       const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
@@ -120,13 +131,20 @@ export default function GameLobby() {
         clearTimeout(waitingAnimation.current);
         setShowHostModal(false);
 
-        // When hosting:
+        // Duplicate host team for battle (host's selectedTeam)
+        const hostBattleTeamId = await duplicateTeamForBattle(selectedTeam);
+        // Duplicate joiner team for battle (joiner's teamId should be fetched or passed)
+        // If you have joiner's teamId, use it here. Otherwise, you may need to request it from backend or pass it from joiner.
+        // For now, we'll assume joiner teamId is not available, so pass null or handle accordingly.
+        // const joinerBattleTeamId = await duplicateTeamForBattle(joinerTeamId);
+
         navigation.navigate("BattleScreen", {
           roomId,
           hostId: data.host_id,
           joinerId: data.joiner_id,
           userId: user.id,
-          teamId: selectedTeam,
+          hostBattleTeamId,
+          // joinerBattleTeamId, // Uncomment and set if available
         });
       }
     }, 1500);
@@ -236,12 +254,15 @@ export default function GameLobby() {
         setShowJoinModal(false);
         setJoinCode("");
 
-        // When joining:
+        // Duplicate the selected team for battle
+        const battleTeamId = await duplicateTeamForBattle(selectedTeam);
+
         navigation.navigate("BattleScreen", {
           roomId: data.roomId,
           hostId: data.hostId,
           joinerId: user.id,
           userId: user.id,
+          battleTeamId,
         });
       } else {
         alert(data.message);
@@ -335,32 +356,33 @@ export default function GameLobby() {
         )}
         {showJoinModal && (
           <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>Enter Room Code</Text>
-              <TextInput
-                value={joinCode}
-                onChangeText={(text) => setJoinCode(text.toUpperCase())}
-                placeholder="ABCD"
-                placeholderTextColor="#777"
-                style={styles.input}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={4}
-                keyboardType="default"
-              />
-              <TouchableOpacity style={styles.buttons} onPress={joinMatch}>
-                <Text style={styles.buttonText}>Join Match</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.cancelButton, { marginTop: 10 }]}
-                onPress={() => {
-                  setShowJoinModal(false);
-                  setJoinCode("");
-                }}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
+            <View style={styles.joinModal}>
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>Enter Room Code</Text>
+                <TextInput
+                  style={styles.input}
+                  value={joinCode}
+                  onChangeText={setJoinCode}
+                  placeholder="Room Code"
+                  placeholderTextColor="#777"
+                  autoCapitalize="characters"
+                  maxLength={6}
+                  autoCorrect={false}
+                  spellCheck={false}
+                />
+                <TouchableOpacity onPress={joinMatch} style={styles.buttons}>
+                  <Text style={styles.buttonText}>Join Match</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { marginTop: 10 }]}
+                  onPress={() => {
+                    setShowJoinModal(false);
+                    setJoinCode("");
+                  }}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -520,7 +542,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   input: {
-    width: "100%",
+    width: 160, // fixed width for consistent size
     borderWidth: 1,
     borderColor: "#D4B36C",
     borderRadius: 12,

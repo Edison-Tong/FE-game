@@ -183,7 +183,7 @@ export default function BattleScreen() {
   };
 
   const DetailedStats = ({ character }) => (
-    <ScrollView style={styles.statsContainer}>
+    <View style={styles.statsContainerNoScroll}>
       <Text style={styles.detailName}>{character.name}</Text>
       <Text style={styles.detailLabel}>
         {character.label} • {character.type}
@@ -243,7 +243,7 @@ export default function BattleScreen() {
           Size: {character.size} | Move: {character.move_value}
         </Text>
       </View>
-    </ScrollView>
+    </View>
   );
 
   return (
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2B2B2B",
     borderRadius: 12,
     padding: 15,
-    maxHeight: "50%",
+    maxHeight: "62%", // was 50%
     maxWidth: "80%",
     borderWidth: 2,
     borderColor: "#C9A66B",
@@ -541,5 +541,11 @@ const styles = StyleSheet.create({
     color: "#2B2B2B",
     fontWeight: "bold",
     fontSize: 12,
+  },
+  statsContainerNoScroll: {
+    marginTop: 2,
+    maxHeight: 280,
+    minWidth: 220,
+    justifyContent: "flex-start",
   },
 });

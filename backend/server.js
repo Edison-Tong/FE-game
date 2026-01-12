@@ -334,7 +334,14 @@ app.delete("/delete-room", async (req, res) => {
     // Remove room from database
     await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
 
-    return res.status(200).json({ message: "Room deleted" });
+    // Delete all battle copy teams and their characters
+    const battleTeams = await pool.query("SELECT id FROM teams WHERE team_name LIKE '%(Battle Copy%' ");
+    for (const team of battleTeams.rows) {
+      await pool.query("DELETE FROM characters WHERE team_id = $1", [team.id]);
+      await pool.query("DELETE FROM teams WHERE id = $1", [team.id]);
+    }
+
+    return res.status(200).json({ message: "Room and battle copy teams deleted" });
   } catch (err) {
     console.error("Error deleting room:", err);
     return res.status(500).json({ message: "Internal server error" });
@@ -399,5 +406,60 @@ app.delete("/delete-character", async (req, res) => {
 });
 
 // Duplicate a team with all its characters for battle
-
-// Get opponent's team for battle display
+app.post("/duplicate-team-for-battle", async (req, res) => {
+  const { teamId, userId } = req.body;
+  if (!teamId || !userId) {
+    return res.status(400).json({ message: "Missing teamId or userId" });
+  }
+  try {
+    // Get original team
+    const teamResult = await pool.query("SELECT * FROM teams WHERE id = $1", [teamId]);
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ message: "Original team not found" });
+    }
+    const origTeam = teamResult.rows[0];
+    // Create new team (battle copy)
+    const battleTeamName = origTeam.team_name + " (Battle Copy " + Date.now() + ")";
+    const newTeamResult = await pool.query(
+      "INSERT INTO teams (user_id, team_name, char_count) VALUES ($1, $2, $3) RETURNING id, team_name, user_id, char_count",
+      [userId, battleTeamName, origTeam.char_count || 6]
+    );
+    const newTeamId = newTeamResult.rows[0].id;
+    // Copy all characters
+    const charsResult = await pool.query("SELECT * FROM characters WHERE team_id = $1", [teamId]);
+    for (const char of charsResult.rows) {
+      await pool.query(
+        `INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        [
+          newTeamId,
+          char.name,
+          char.label,
+          char.type,
+          char.move_value,
+          char.base_weapon,
+          char.weapon_ability1,
+          char.weapon_ability2,
+          char.health,
+          char.strength,
+          char.defense,
+          char.magick,
+          char.resistance,
+          char.speed,
+          char.skill,
+          char.knowledge,
+          char.luck,
+          char.size,
+        ]
+      );
+    }
+    res.json({
+      message: "Team duplicated for battle",
+      newTeamId,
+      newTeam: newTeamResult.rows[0],
+    });
+  } catch (err) {
+    console.error("Error duplicating team for battle:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
