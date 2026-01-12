@@ -4,13 +4,13 @@ import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 
-// Hardcoded test opponent team
+// Hardcoded test opponent team - FOR TESTING ONLY - DELETE WHEN DONE
 const TEST_OPPONENT_TEAM = [
   {
     id: 1,
     name: "Test Warrior 1",
     label: "Warrior",
-    type: "warrior",
+    type: "melee",
     health: 35,
     strength: 18,
     defense: 12,
@@ -50,7 +50,7 @@ const TEST_OPPONENT_TEAM = [
     id: 3,
     name: "Test Warrior 2",
     label: "Knight",
-    type: "warrior",
+    type: "melee",
     health: 38,
     strength: 16,
     defense: 15,
@@ -90,7 +90,7 @@ const TEST_OPPONENT_TEAM = [
     id: 5,
     name: "Test Archer",
     label: "Ranger",
-    type: "warrior",
+    type: "melee",
     health: 28,
     strength: 15,
     defense: 9,
@@ -110,7 +110,7 @@ const TEST_OPPONENT_TEAM = [
     id: 6,
     name: "Test Paladin",
     label: "Holy Knight",
-    type: "warrior",
+    type: "melee",
     health: 32,
     strength: 17,
     defense: 13,
@@ -132,7 +132,9 @@ export default function BattleScreen() {
   const route = useRoute();
   const { hostId, joinerId, userId } = route.params;
   const [myTeam, setMyTeam] = useState(null);
-  const [opponentTeam, setOpponentTeam] = useState(null);
+  const [myTeamName, setMyTeamName] = useState("My Team");
+  const [opponentTeam, setOpponentTeam] = useState(null); // FOR TESTING ONLY - DELETE WHEN DONE
+  const [opponentTeamName, setOpponentTeamName] = useState("Opponent Team"); // FOR TESTING ONLY - DELETE WHEN DONE
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
@@ -146,15 +148,17 @@ export default function BattleScreen() {
         const teamsData = await teamsRes.json();
 
         if (teamsData.teams && teamsData.teams.length > 0) {
-          const teamId = teamsData.teams[0].id;
-          const charRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${teamId}`);
+          const team = teamsData.teams[0];
+          setMyTeamName(team.team_name);
+          const charRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${team.id}`);
           const charData = await charRes.json();
           setMyTeam(charData.characters);
         }
 
-        // Check if there's a host - if no hostId, use the hardcoded test team
+        // Check if there's a host - if no hostId, use the hardcoded test team - FOR TESTING ONLY - DELETE WHEN DONE
         if (!hostId) {
           setOpponentTeam(TEST_OPPONENT_TEAM);
+          setOpponentTeamName("The Test Team"); // FOR TESTING ONLY - DELETE WHEN DONE
         }
       } catch (err) {
         console.log("Error fetching battle data:", err);
@@ -167,7 +171,7 @@ export default function BattleScreen() {
   const CompactCharacter = ({ character, onPress }) => {
     const typeColor = character.type && character.type.toLowerCase() === "mage" ? "#9D4EDD" : "#FF0000";
     return (
-      <TouchableOpacity style={styles.compactCard} onPress={onPress}>
+      <TouchableOpacity style={[styles.compactCard, { borderLeftColor: typeColor }]} onPress={onPress}>
         <View style={styles.cardHeader}>
           <Text style={styles.charNameCompact}>{character.name}</Text>
           <View style={[styles.typeIndicator, { backgroundColor: typeColor }]} />
@@ -259,7 +263,7 @@ export default function BattleScreen() {
       <ScrollView style={styles.teamsContainer} scrollEnabled={true} horizontal={false}>
         <View style={styles.teamsWrapper}>
           <View style={styles.teamColumn}>
-            <Text style={styles.sectionTitle}>Your Team</Text>
+            <Text style={styles.sectionTitle}>{myTeamName}</Text>
             {myTeam &&
               myTeam.map((char) => (
                 <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
@@ -267,7 +271,7 @@ export default function BattleScreen() {
           </View>
 
           <View style={styles.teamColumn}>
-            <Text style={styles.sectionTitle}>{opponentName} Team</Text>
+            <Text style={styles.sectionTitle}>{opponentTeamName}</Text>
             {opponentTeam &&
               opponentTeam.map((char) => (
                 <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
@@ -349,6 +353,8 @@ const styles = StyleSheet.create({
     color: "#C9A66B",
     marginBottom: 10,
     textAlign: "center",
+    minHeight: 40,
+    justifyContent: "center",
   },
   compactCard: {
     backgroundColor: "#3C3C3C",
