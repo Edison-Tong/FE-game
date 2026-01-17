@@ -11,6 +11,7 @@ import HomeScreen from "./HomeScreen";
 import TeamViewScreen from "./TeamViewScreen";
 import CharCreation from "./CharCreation";
 import GameLobby from "./GameLobby";
+import MatchmakingScreen from "./MatchmakingScreen";
 import BattleScreen from "./BattleScreen";
 
 const Stack = createNativeStackNavigator();
@@ -98,6 +99,15 @@ export default function App() {
             options={{ headerBackTitleVisible: false, title: "" }}
           />
           <Stack.Screen name="GameLobby" component={GameLobby} options={{ headerBackTitleVisible: false, title: "" }} />
+          <Stack.Screen
+            name="MatchmakingScreen"
+            component={MatchmakingScreen}
+            options={({ navigation }) => ({
+              headerBackVisible: false,
+              title: "",
+              headerLeft: () => <LeaveRoomButton navigation={navigation} />,
+            })}
+          />
           <Stack.Screen
             name="BattleScreen"
             component={BattleScreen}

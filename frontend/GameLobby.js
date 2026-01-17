@@ -137,7 +137,7 @@ export default function GameLobby() {
         // For now, we'll assume joiner teamId is not available, so pass null or handle accordingly.
         // const joinerBattleTeamId = await duplicateTeamForBattle(joinerTeamId);
 
-        navigation.navigate("BattleScreen", {
+        navigation.navigate("MatchmakingScreen", {
           roomId,
           hostId: data.host_id,
           joinerId: data.joiner_id,
@@ -260,7 +260,7 @@ export default function GameLobby() {
         // Duplicate the selected team for battle
         const battleTeamId = await duplicateTeamForBattle(selectedTeam, data.roomId);
 
-        navigation.navigate("BattleScreen", {
+        navigation.navigate("MatchmakingScreen", {
           roomId: data.roomId,
           hostId: data.hostId,
           joinerId: user.id,
