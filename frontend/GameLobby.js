@@ -13,7 +13,7 @@ import { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 export default function GameLobby() {
-  const { user } = useContext(AuthContext);
+  const { user, roomId, setRoomId } = useContext(AuthContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [previewTeam, setPreviewTeam] = useState(null);
@@ -22,7 +22,6 @@ export default function GameLobby() {
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
 
   const [canPress, setCanPress] = useState(false);
-  const [roomId, setRoomId] = useState(null);
   const [roomCode, setRoomCode] = useState("");
   const [showHostModal, setShowHostModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -111,11 +110,11 @@ export default function GameLobby() {
   };
 
   // Helper to duplicate a team for battle
-  const duplicateTeamForBattle = async (teamId) => {
+  const duplicateTeamForBattle = async (teamId, roomId) => {
     const res = await fetch(`${BACKEND_URL}/duplicate-team-for-battle`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamId, userId: user.id }),
+      body: JSON.stringify({ teamId, userId: user.id, roomId }),
     });
     const data = await res.json();
     return data.newTeamId;
@@ -132,7 +131,7 @@ export default function GameLobby() {
         setShowHostModal(false);
 
         // Duplicate host team for battle (host's selectedTeam)
-        const hostBattleTeamId = await duplicateTeamForBattle(selectedTeam);
+        const hostBattleTeamId = await duplicateTeamForBattle(selectedTeam, roomId);
         // Duplicate joiner team for battle (joiner's teamId should be fetched or passed)
         // If you have joiner's teamId, use it here. Otherwise, you may need to request it from backend or pass it from joiner.
         // For now, we'll assume joiner teamId is not available, so pass null or handle accordingly.
@@ -215,11 +214,13 @@ export default function GameLobby() {
 
   const cancelRoom = async () => {
     try {
-      await fetch(`${BACKEND_URL}/delete-room`, {
+      const res = await fetch(`${BACKEND_URL}/delete-room`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId }),
       });
+      const data = await res.json();
+      console.log("Delete room response:", data);
 
       clearInterval(pollingInterval.current);
       clearTimeout(waitingAnimation.current);
@@ -255,7 +256,7 @@ export default function GameLobby() {
         setJoinCode("");
 
         // Duplicate the selected team for battle
-        const battleTeamId = await duplicateTeamForBattle(selectedTeam);
+        const battleTeamId = await duplicateTeamForBattle(selectedTeam, data.roomId);
 
         navigation.navigate("BattleScreen", {
           roomId: data.roomId,

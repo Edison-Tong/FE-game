@@ -1,7 +1,7 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AuthProvider } from "./AuthContext";
-import { useEffect } from "react";
+import { AuthProvider, AuthContext } from "./AuthContext";
+import { useEffect, useContext } from "react";
 import { Button, Alert } from "react-native";
 import { BACKEND_URL } from "@env";
 
@@ -21,6 +21,40 @@ export default function App() {
       .then(() => console.log("Backend warmed up"))
       .catch((err) => console.log("Warm-up failed:", err));
   }, []);
+
+  // LeaveRoomButton consumes AuthContext inside provider
+  const LeaveRoomButton = ({ navigation }) => {
+    const { roomId, setRoomId } = useContext(AuthContext);
+
+    const doLeave = async () => {
+      if (roomId) {
+        try {
+          await fetch(`${BACKEND_URL}/delete-room`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomId }),
+          });
+        } catch (err) {
+          console.log("Error deleting room:", err);
+        }
+      }
+      // clear local context state and navigate back
+      if (setRoomId) setRoomId(null);
+      navigation.pop(1);
+    };
+
+    return (
+      <Button
+        title="Leave Room"
+        onPress={() => {
+          Alert.alert("Leave Battle", "Are you sure you want to leave the battle? This cannot be undone.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Yes, Leave", style: "destructive", onPress: doLeave },
+          ]);
+        }}
+      />
+    );
+  };
 
   return (
     <AuthProvider>
@@ -70,24 +104,7 @@ export default function App() {
             options={({ navigation }) => ({
               headerBackVisible: false,
               title: "",
-              headerLeft: () => (
-                <Button
-                  title="Leave Room"
-                  onPress={() => {
-                    Alert.alert("Leave Battle", "Are you sure you want to leave the battle? This cannot be undone.", [
-                      {
-                        text: "Cancel",
-                        style: "cancel",
-                      },
-                      {
-                        text: "Yes, Leave",
-                        style: "destructive",
-                        onPress: () => navigation.pop(1),
-                      },
-                    ]);
-                  }}
-                />
-              ),
+              headerLeft: () => <LeaveRoomButton navigation={navigation} />,
             })}
           />
         </Stack.Navigator>

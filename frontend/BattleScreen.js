@@ -4,137 +4,13 @@ import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 
-// Hardcoded test opponent team - FOR TESTING ONLY - DELETE WHEN DONE
-const TEST_OPPONENT_TEAM = [
-  {
-    id: 1,
-    name: "Test Warrior 1",
-    label: "Warrior",
-    type: "melee",
-    health: 35,
-    strength: 18,
-    defense: 12,
-    magick: 4,
-    resistance: 8,
-    speed: 10,
-    skill: 12,
-    knowledge: 5,
-    luck: 8,
-    base_weapon: "Sword",
-    weapon_ability1: "Slash - Attacks adjacent enemy",
-    weapon_ability2: "Parry - Defensive stance",
-    move_value: 5,
-    size: "Medium",
-  },
-  {
-    id: 2,
-    name: "Test Mage 1",
-    label: "Mage",
-    type: "mage",
-    health: 22,
-    strength: 6,
-    defense: 6,
-    magick: 20,
-    resistance: 14,
-    speed: 11,
-    skill: 9,
-    knowledge: 16,
-    luck: 10,
-    base_weapon: "Fire",
-    weapon_ability1: "Fireball - AOE damage",
-    weapon_ability2: "Flame Shield - Reflect damage",
-    move_value: 4,
-    size: "Small",
-  },
-  {
-    id: 3,
-    name: "Test Warrior 2",
-    label: "Knight",
-    type: "melee",
-    health: 38,
-    strength: 16,
-    defense: 15,
-    magick: 3,
-    resistance: 10,
-    speed: 8,
-    skill: 11,
-    knowledge: 4,
-    luck: 7,
-    base_weapon: "Lance",
-    weapon_ability1: "Thrust - Pierce defense",
-    weapon_ability2: "Guard - Reduce damage",
-    move_value: 5,
-    size: "Medium",
-  },
-  {
-    id: 4,
-    name: "Test Mage 2",
-    label: "Sorcerer",
-    type: "mage",
-    health: 20,
-    strength: 5,
-    defense: 5,
-    magick: 22,
-    resistance: 12,
-    speed: 12,
-    skill: 10,
-    knowledge: 18,
-    luck: 11,
-    base_weapon: "Water",
-    weapon_ability1: "Blizzard - Slow target",
-    weapon_ability2: "Freeze - Stun chance",
-    move_value: 4,
-    size: "Small",
-  },
-  {
-    id: 5,
-    name: "Test Archer",
-    label: "Ranger",
-    type: "melee",
-    health: 28,
-    strength: 15,
-    defense: 9,
-    magick: 7,
-    resistance: 9,
-    speed: 13,
-    skill: 14,
-    knowledge: 8,
-    luck: 12,
-    base_weapon: "Bow",
-    weapon_ability1: "Arrow Shot - Range attack",
-    weapon_ability2: "Multishot - Hit twice",
-    move_value: 6,
-    size: "Small",
-  },
-  {
-    id: 6,
-    name: "Test Paladin",
-    label: "Holy Knight",
-    type: "melee",
-    health: 32,
-    strength: 17,
-    defense: 13,
-    magick: 10,
-    resistance: 13,
-    speed: 9,
-    skill: 11,
-    knowledge: 11,
-    luck: 14,
-    base_weapon: "Axe",
-    weapon_ability1: "Smash - Heavy damage",
-    weapon_ability2: "Divine Shield - Block",
-    move_value: 5,
-    size: "Medium",
-  },
-];
+/* Removed hardcoded test opponent team; BattleScreen now relies on server-provided teams */
 
 export default function BattleScreen() {
   const route = useRoute();
-  const { hostId, joinerId, userId } = route.params;
+  const { hostId, joinerId, userId, roomId, hostBattleTeamId, battleTeamId, joinerBattleTeamId } = route.params;
   const [myTeam, setMyTeam] = useState(null);
   const [myTeamName, setMyTeamName] = useState("My Team");
-  const [opponentTeam, setOpponentTeam] = useState(null); // FOR TESTING ONLY - DELETE WHEN DONE
-  const [opponentTeamName, setOpponentTeamName] = useState("Opponent Team"); // FOR TESTING ONLY - DELETE WHEN DONE
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
@@ -143,23 +19,53 @@ export default function BattleScreen() {
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-        // Get user's teams and use the first completed team
-        const teamsRes = await fetch(`${BACKEND_URL}/get-finished-teams?userId=${userId}`);
-        const teamsData = await teamsRes.json();
+        // Prefer any explicit battle team IDs passed in params (these are duplicated teams)
+        // Determine current player's battle team id
+        let myBattleTeamId = null;
+        let opponentBattleTeamId = null;
 
-        if (teamsData.teams && teamsData.teams.length > 0) {
-          const team = teamsData.teams[0];
-          setMyTeamName(team.team_name);
-          const charRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${team.id}`);
-          const charData = await charRes.json();
-          setMyTeam(charData.characters);
+        if (isHost) {
+          myBattleTeamId = hostBattleTeamId || null;
+          opponentBattleTeamId = joinerBattleTeamId || null;
+        } else {
+          myBattleTeamId = battleTeamId || null; // joiner passed 'battleTeamId' param
+          opponentBattleTeamId = hostBattleTeamId || null;
         }
 
-        // Check if there's a host - if no hostId, use the hardcoded test team - FOR TESTING ONLY - DELETE WHEN DONE
-        if (!hostId) {
-          setOpponentTeam(TEST_OPPONENT_TEAM);
-          setOpponentTeamName("The Test Team"); // FOR TESTING ONLY - DELETE WHEN DONE
+        // If we have the team ids, fetch characters directly
+        if (myBattleTeamId) {
+          const myCharsRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${myBattleTeamId}`);
+          const myCharsData = await myCharsRes.json();
+          setMyTeam(myCharsData.characters);
+          // Try to set a friendly name if available
+          // (backend duplicate returns team_name when duplicating; navigation params may include it later)
         }
+
+        if (opponentBattleTeamId) {
+          const oppRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${opponentBattleTeamId}`);
+          const oppData = await oppRes.json();
+          setOpponentTeam(oppData.characters);
+        }
+
+        // If we still don't have both teams, but have a roomId, fetch all battle teams for the room
+        if ((!myBattleTeamId || !opponentBattleTeamId) && roomId) {
+          const roomRes = await fetch(`${BACKEND_URL}/get-battle-teams?roomId=${roomId}`);
+          const roomData = await roomRes.json();
+          if (roomData.teams && roomData.teams.length > 0) {
+            // Find teams by user_id matching host/joiner
+            for (const t of roomData.teams) {
+              if (t.user_id === userId) {
+                setMyTeam(t.characters);
+                setMyTeamName(t.team_name || myTeamName);
+              } else {
+                setOpponentTeam(t.characters);
+                setOpponentTeamName(t.team_name || opponentTeamName);
+              }
+            }
+          }
+        }
+
+        // No test fallback — rely on server data only
       } catch (err) {
         console.log("Error fetching battle data:", err);
       }

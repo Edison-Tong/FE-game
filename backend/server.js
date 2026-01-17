@@ -334,14 +334,14 @@ app.delete("/delete-room", async (req, res) => {
     // Remove room from database
     await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
 
-    // Delete all battle copy teams and their characters
-    const battleTeams = await pool.query("SELECT id FROM teams WHERE team_name LIKE '%(Battle Copy%' ");
+    // Delete only battle copy teams and their characters for this room
+    const battleTeams = await pool.query("SELECT id FROM teams WHERE room_id = $1", [roomId]);
     for (const team of battleTeams.rows) {
       await pool.query("DELETE FROM characters WHERE team_id = $1", [team.id]);
       await pool.query("DELETE FROM teams WHERE id = $1", [team.id]);
     }
 
-    return res.status(200).json({ message: "Room and battle copy teams deleted" });
+    return res.status(200).json({ message: "Room and associated battle copy teams deleted" });
   } catch (err) {
     console.error("Error deleting room:", err);
     return res.status(500).json({ message: "Internal server error" });
@@ -407,9 +407,9 @@ app.delete("/delete-character", async (req, res) => {
 
 // Duplicate a team with all its characters for battle
 app.post("/duplicate-team-for-battle", async (req, res) => {
-  const { teamId, userId } = req.body;
-  if (!teamId || !userId) {
-    return res.status(400).json({ message: "Missing teamId or userId" });
+  const { teamId, userId, roomId } = req.body;
+  if (!teamId || !userId || !roomId) {
+    return res.status(400).json({ message: "Missing teamId, userId, or roomId" });
   }
   try {
     // Get original team
@@ -421,8 +421,8 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
     // Create new team (battle copy)
     const battleTeamName = origTeam.team_name + " (Battle Copy " + Date.now() + ")";
     const newTeamResult = await pool.query(
-      "INSERT INTO teams (user_id, team_name, char_count) VALUES ($1, $2, $3) RETURNING id, team_name, user_id, char_count",
-      [userId, battleTeamName, origTeam.char_count || 6]
+      "INSERT INTO teams (user_id, team_name, char_count, room_id) VALUES ($1, $2, $3, $4) RETURNING id, team_name, user_id, char_count, room_id",
+      [userId, battleTeamName, origTeam.char_count || 6, roomId]
     );
     const newTeamId = newTeamResult.rows[0].id;
     // Copy all characters
@@ -461,5 +461,39 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
   } catch (err) {
     console.error("Error duplicating team for battle:", err);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get all battle teams (and their characters) for a room
+app.get("/get-battle-teams", async (req, res) => {
+  const { roomId } = req.query;
+
+  if (!roomId) {
+    return res.status(400).json({ message: "Missing roomId" });
+  }
+
+  try {
+    const teamsResult = await pool.query(
+      "SELECT id, user_id, team_name, char_count, room_id FROM teams WHERE room_id = $1",
+      [roomId]
+    );
+    const teams = [];
+
+    for (const t of teamsResult.rows) {
+      const charsRes = await pool.query("SELECT * FROM characters WHERE team_id = $1", [t.id]);
+      teams.push({
+        id: t.id,
+        user_id: t.user_id,
+        team_name: t.team_name,
+        char_count: t.char_count,
+        room_id: t.room_id,
+        characters: charsRes.rows,
+      });
+    }
+
+    return res.json({ teams });
+  } catch (err) {
+    console.error("Error fetching battle teams:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
