@@ -18,6 +18,62 @@ app.get("/ping", (req, res) => {
   res.json({ message: "pong" });
 });
 
+// In-memory ready state for rooms (roomId -> { host_ready: bool, joiner_ready: bool })
+// Note: ephemeral; restarts will clear this. For production, persist in DB.
+const roomReadyStates = {};
+
+// Set ready state for a user in a room
+app.post("/set-ready", async (req, res) => {
+  const { roomId, userId, ready } = req.body;
+  if (!roomId || !userId || typeof ready !== "boolean") {
+    return res.status(400).json({ message: "Missing roomId, userId, or ready boolean" });
+  }
+
+  try {
+    const room = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    if (room.rows.length === 0) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    if (!roomReadyStates[roomId]) {
+      roomReadyStates[roomId] = { host_ready: false, joiner_ready: false };
+    }
+
+    const { host_id, joiner_id } = room.rows[0];
+    if (userId === host_id) {
+      roomReadyStates[roomId].host_ready = ready;
+    } else if (userId === joiner_id) {
+      roomReadyStates[roomId].joiner_ready = ready;
+    } else {
+      return res.status(403).json({ message: "User not in room" });
+    }
+
+    return res.json({ success: true, ready: roomReadyStates[roomId] });
+  } catch (err) {
+    console.error("Error setting ready state:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get ready state for a room
+app.get("/room-ready", async (req, res) => {
+  const { roomId } = req.query;
+  if (!roomId) return res.status(400).json({ message: "Missing roomId" });
+
+  try {
+    const room = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    if (room.rows.length === 0) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const state = roomReadyStates[roomId] || { host_ready: false, joiner_ready: false };
+    return res.json({ ready: state });
+  } catch (err) {
+    console.error("Error getting room ready state:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // Register
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;

@@ -17,6 +17,8 @@ export default function BattleScreen() {
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
   const opponentName = isHost ? "Opponent" : "Host";
+  const [myReady, setMyReady] = useState(false);
+  const [opponentReady, setOpponentReady] = useState(false);
   const navigation = useNavigation();
   const roomMissingHandled = useRef(false);
   const myBattleTeamIdRef = useRef(null);
@@ -81,6 +83,22 @@ export default function BattleScreen() {
     };
 
     fetchTeams();
+
+    // Fetch ready state once immediately
+    const fetchReady = async () => {
+      if (!roomId) return;
+      try {
+        const res = await fetch(`${BACKEND_URL}/room-ready?roomId=${roomId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const state = data.ready || { host_ready: false, joiner_ready: false };
+        setMyReady(isHost ? state.host_ready : state.joiner_ready);
+        setOpponentReady(isHost ? state.joiner_ready : state.host_ready);
+      } catch (err) {
+        console.log("Error fetching ready state:", err);
+      }
+    };
+    fetchReady();
 
     // Poll for teams if one or both are missing (handles race where duplication finishes after navigation)
     let teamsPoll = null;
@@ -162,6 +180,19 @@ export default function BattleScreen() {
             } catch (err) {
               console.log("Error checking opponent team:", err);
             }
+          }
+
+          // also poll ready state
+          try {
+            const rres = await fetch(`${BACKEND_URL}/room-ready?roomId=${roomId}`);
+            if (rres.ok) {
+              const rjson = await rres.json();
+              const state = rjson.ready || { host_ready: false, joiner_ready: false };
+              setMyReady(isHost ? state.host_ready : state.joiner_ready);
+              setOpponentReady(isHost ? state.joiner_ready : state.host_ready);
+            }
+          } catch (err) {
+            // ignore
           }
         } catch (err) {
           console.log("Error polling room status:", err);
@@ -274,6 +305,27 @@ export default function BattleScreen() {
               myTeam.map((char) => (
                 <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
               ))}
+            <View style={styles.readyRow}>
+              <TouchableOpacity
+                style={[styles.readyButton, myReady ? styles.readyOn : styles.readyOff]}
+                onPress={async () => {
+                  try {
+                    const res = await fetch(`${BACKEND_URL}/set-ready`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ roomId, userId, ready: !myReady }),
+                    });
+                    if (res.ok) {
+                      setMyReady(!myReady);
+                    }
+                  } catch (err) {
+                    console.log("Error setting ready:", err);
+                  }
+                }}
+              >
+                <Text style={styles.readyText}>{myReady ? "Unready" : "Ready"}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.teamColumn}>
@@ -282,6 +334,11 @@ export default function BattleScreen() {
               opponentTeam.map((char) => (
                 <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
               ))}
+            <View style={styles.readyRow}>
+              <Text style={[styles.opponentReadyText, opponentReady ? styles.readyOnText : null]}>
+                {opponentReady ? "Ready" : "Waiting"}
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -553,5 +610,34 @@ const styles = StyleSheet.create({
     maxHeight: 280,
     minWidth: 220,
     justifyContent: "flex-start",
+  },
+  readyRow: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  readyButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C9A66B",
+  },
+  readyOn: {
+    backgroundColor: "#2ECC71",
+  },
+  readyOff: {
+    backgroundColor: "#444",
+  },
+  readyText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  opponentReadyText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#ddd",
+  },
+  readyOnText: {
+    color: "#2ECC71",
   },
 });
