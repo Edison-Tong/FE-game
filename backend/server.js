@@ -22,6 +22,15 @@ app.get("/ping", (req, res) => {
 // Note: ephemeral; restarts will clear this. For production, persist in DB.
 const roomReadyStates = {};
 
+// In-memory battle state per room
+// Structure: {
+//   [roomId]: {
+//     active: true,
+//     currentTurnUserId: <userId>,
+//     attacked: { [charId]: true }
+//   }
+// }
+const battleStates = {};
 // Set ready state for a user in a room
 app.post("/set-ready", async (req, res) => {
   const { roomId, userId, ready } = req.body;
@@ -476,9 +485,11 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
     const origTeam = teamResult.rows[0];
     // Create new team (battle copy) - keep original team name
     const battleTeamName = origTeam.team_name;
+    // If the DB has an `original_team_id` column, record the source team there so copies
+    // can be distinguished in the DB while keeping the same visible `team_name`.
     const newTeamResult = await pool.query(
-      "INSERT INTO teams (user_id, team_name, char_count, room_id) VALUES ($1, $2, $3, $4) RETURNING id, team_name, user_id, char_count, room_id",
-      [userId, battleTeamName, origTeam.char_count || 6, roomId]
+      "INSERT INTO teams (user_id, team_name, char_count, room_id, original_team_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, team_name, user_id, char_count, room_id, original_team_id",
+      [userId, battleTeamName, origTeam.char_count || 6, roomId, teamId]
     );
     const newTeamId = newTeamResult.rows[0].id;
     // Copy all characters
@@ -550,6 +561,157 @@ app.get("/get-battle-teams", async (req, res) => {
     return res.json({ teams });
   } catch (err) {
     console.error("Error fetching battle teams:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Start battle when both players are ready. Randomly pick who goes first.
+app.post("/start-battle", async (req, res) => {
+  const { roomId } = req.body;
+  if (!roomId) return res.status(400).json({ message: "Missing roomId" });
+
+  try {
+    const roomRes = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    if (roomRes.rows.length === 0) return res.status(404).json({ message: "Room not found" });
+    const { host_id, joiner_id } = roomRes.rows[0];
+
+    if (!host_id || !joiner_id) return res.status(400).json({ message: "Both players must be present" });
+
+    const ready = roomReadyStates[roomId] || { host_ready: false, joiner_ready: false };
+    if (!ready.host_ready || !ready.joiner_ready) {
+      return res.status(400).json({ message: "Both players must be ready to start" });
+    }
+
+    // Randomly pick start
+    const starter = Math.random() < 0.5 ? host_id : joiner_id;
+
+    // Initialize attacked map for the starting player's characters (all false)
+    const teamsRes = await pool.query("SELECT id, user_id FROM teams WHERE room_id = $1", [roomId]);
+    const attacked = {};
+    for (const t of teamsRes.rows) {
+      if (t.user_id === starter) {
+        const charsRes = await pool.query("SELECT id FROM characters WHERE team_id = $1", [t.id]);
+        for (const c of charsRes.rows) attacked[c.id] = false;
+      }
+    }
+
+    battleStates[roomId] = {
+      active: true,
+      currentTurnUserId: starter,
+      attacked,
+    };
+
+    return res.json({ success: true, currentTurnUserId: starter });
+  } catch (err) {
+    console.error("Error starting battle:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get current battle state (turn owner, attacked flags, latest characters)
+app.get("/battle-state", async (req, res) => {
+  const { roomId } = req.query;
+  if (!roomId) return res.status(400).json({ message: "Missing roomId" });
+
+  try {
+    const state = battleStates[roomId];
+    if (!state || !state.active) return res.status(404).json({ message: "Battle not found" });
+
+    // Return fresh characters for both teams
+    const teamsResult = await pool.query("SELECT id, user_id, team_name FROM teams WHERE room_id = $1", [roomId]);
+    const teams = [];
+    for (const t of teamsResult.rows) {
+      const charsRes = await pool.query("SELECT * FROM characters WHERE team_id = $1", [t.id]);
+      teams.push({ id: t.id, user_id: t.user_id, team_name: t.team_name, characters: charsRes.rows });
+    }
+
+    return res.json({ currentTurnUserId: state.currentTurnUserId, attacked: state.attacked, teams });
+  } catch (err) {
+    console.error("Error fetching battle state:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Perform an attack from an attacker's character to a target character
+app.post("/attack", async (req, res) => {
+  const { roomId, attackerId, targetId, userId } = req.body;
+  if (!roomId || !attackerId || !targetId || !userId) return res.status(400).json({ message: "Missing fields" });
+
+  try {
+    const state = battleStates[roomId];
+    if (!state || !state.active) return res.status(400).json({ message: "Battle not active" });
+    if (state.currentTurnUserId !== userId) return res.status(403).json({ message: "Not your turn" });
+
+    // Verify attacker belongs to current player
+    const attackerRes = await pool.query(
+      `SELECT c.*, t.user_id as owner_id FROM characters c JOIN teams t ON c.team_id = t.id WHERE c.id = $1`,
+      [attackerId]
+    );
+    if (attackerRes.rows.length === 0) return res.status(404).json({ message: "Attacker not found" });
+    const attacker = attackerRes.rows[0];
+    if (attacker.owner_id !== userId) return res.status(403).json({ message: "Attacker does not belong to you" });
+
+    // Ensure attacker hasn't already attacked this turn
+    if (state.attacked[attackerId])
+      return res.status(400).json({ message: "This character already attacked this turn" });
+
+    // Verify target belongs to opponent
+    const targetRes = await pool.query(
+      `SELECT c.*, t.user_id as owner_id FROM characters c JOIN teams t ON c.team_id = t.id WHERE c.id = $1`,
+      [targetId]
+    );
+    if (targetRes.rows.length === 0) return res.status(404).json({ message: "Target not found" });
+    const target = targetRes.rows[0];
+    if (target.owner_id === userId) return res.status(400).json({ message: "Cannot attack your own character" });
+
+    // Simple damage calculation: subtract attacker's strength from target's health
+    const damage = attacker.strength || 1;
+    const newHealth = Math.max(0, (target.health || 0) - damage);
+    await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newHealth, targetId]);
+
+    // Mark attacker as having attacked this turn
+    state.attacked[attackerId] = true;
+
+    // Return updated target and attacked map
+    const updatedTargetRes = await pool.query("SELECT * FROM characters WHERE id = $1", [targetId]);
+    return res.json({ success: true, attacked: state.attacked, updatedTarget: updatedTargetRes.rows[0] });
+  } catch (err) {
+    console.error("Error performing attack:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// End the current player's turn and switch to the other player
+app.post("/end-turn", async (req, res) => {
+  const { roomId, userId } = req.body;
+  if (!roomId || !userId) return res.status(400).json({ message: "Missing roomId or userId" });
+
+  try {
+    const state = battleStates[roomId];
+    if (!state || !state.active) return res.status(400).json({ message: "Battle not active" });
+    if (state.currentTurnUserId !== userId) return res.status(403).json({ message: "Not your turn" });
+
+    const roomRes = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    if (roomRes.rows.length === 0) return res.status(404).json({ message: "Room not found" });
+    const { host_id, joiner_id } = roomRes.rows[0];
+    const next = host_id === userId ? joiner_id : host_id;
+
+    // Reset attacked map for next player's characters
+    const teamsRes = await pool.query("SELECT id, user_id FROM teams WHERE room_id = $1", [roomId]);
+    const attacked = {};
+    for (const t of teamsRes.rows) {
+      if (t.user_id === next) {
+        const charsRes = await pool.query("SELECT id FROM characters WHERE team_id = $1", [t.id]);
+        for (const c of charsRes.rows) attacked[c.id] = false;
+      }
+    }
+
+    state.currentTurnUserId = next;
+    state.attacked = attacked;
+
+    return res.json({ success: true, currentTurnUserId: next });
+  } catch (err) {
+    console.error("Error ending turn:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

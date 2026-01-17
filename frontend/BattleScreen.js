@@ -19,6 +19,10 @@ export default function BattleScreen() {
   const opponentName = isHost ? "Opponent" : "Host";
   const [myReady, setMyReady] = useState(false);
   const [opponentReady, setOpponentReady] = useState(false);
+  const [battleStarted, setBattleStarted] = useState(false);
+  const [currentTurnUserId, setCurrentTurnUserId] = useState(null);
+  const [attackedMap, setAttackedMap] = useState({});
+  const [selectedAttacker, setSelectedAttacker] = useState(null);
   const navigation = useNavigation();
   const roomMissingHandled = useRef(false);
   const myBattleTeamIdRef = useRef(null);
@@ -99,6 +103,30 @@ export default function BattleScreen() {
       }
     };
     fetchReady();
+
+    // If both ready, attempt to start battle (server will validate readiness)
+    const tryStartBattle = async () => {
+      if (!roomId) return;
+      if (!myReady || !opponentReady) return;
+      if (battleStarted) return;
+      try {
+        const res = await fetch(`${BACKEND_URL}/start-battle`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setBattleStarted(true);
+          setCurrentTurnUserId(json.currentTurnUserId);
+          // fetch full battle state immediately
+          fetchBattleState();
+        }
+      } catch (err) {
+        console.log("Error starting battle:", err);
+      }
+    };
+    tryStartBattle();
 
     // Poll for teams if one or both are missing (handles race where duplication finishes after navigation)
     let teamsPoll = null;
@@ -182,7 +210,7 @@ export default function BattleScreen() {
             }
           }
 
-          // also poll ready state
+          // also poll ready state and battle state (if started)
           try {
             const rres = await fetch(`${BACKEND_URL}/room-ready?roomId=${roomId}`);
             if (rres.ok) {
@@ -190,6 +218,34 @@ export default function BattleScreen() {
               const state = rjson.ready || { host_ready: false, joiner_ready: false };
               setMyReady(isHost ? state.host_ready : state.joiner_ready);
               setOpponentReady(isHost ? state.joiner_ready : state.host_ready);
+
+              // If both players ready and battle hasn't started yet, request start
+              if (state.host_ready && state.joiner_ready && !battleStarted) {
+                try {
+                  const sres = await fetch(`${BACKEND_URL}/start-battle`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roomId }),
+                  });
+                  if (sres.ok) {
+                    const sj = await sres.json();
+                    setBattleStarted(true);
+                    setCurrentTurnUserId(sj.currentTurnUserId);
+                    await fetchBattleState();
+                  }
+                } catch (err) {
+                  console.log("Error starting battle from poll:", err);
+                }
+              }
+            }
+          } catch (err) {
+            // ignore
+          }
+
+          // If battle started, refresh battle state
+          try {
+            if (battleStarted) {
+              await fetchBattleState();
             }
           } catch (err) {
             // ignore
@@ -205,6 +261,31 @@ export default function BattleScreen() {
     };
   }, [hostId, roomId, userId, hostBattleTeamId, battleTeamId, joinerBattleTeamId]);
 
+  const fetchBattleState = async () => {
+    if (!roomId) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/battle-state?roomId=${roomId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setCurrentTurnUserId(data.currentTurnUserId);
+      setAttackedMap(data.attacked || {});
+      // update teams from server state
+      if (data.teams && data.teams.length > 0) {
+        for (const t of data.teams) {
+          if (t.user_id === userId) {
+            setMyTeam(t.characters);
+            if (t.team_name) setMyTeamName(t.team_name);
+          } else {
+            setOpponentTeam(t.characters);
+            if (t.team_name) setOpponentTeamName(t.team_name);
+          }
+        }
+      }
+    } catch (err) {
+      console.log("Error fetching battle state:", err);
+    }
+  };
+
   const CompactCharacter = ({ character, onPress }) => {
     const typeColor = character.type && character.type.toLowerCase() === "mage" ? "#9D4EDD" : "#FF0000";
     return (
@@ -219,69 +300,64 @@ export default function BattleScreen() {
     );
   };
 
-  const DetailedStats = ({ character }) => (
-    <View style={styles.statsContainerNoScroll}>
-      <Text style={styles.detailName}>{character.name}</Text>
-      <Text style={styles.detailLabel}>
-        {character.label} • {character.type}
-      </Text>
-
-      <View style={styles.hpBarContainer}>
-        <View style={styles.hpBarLabelRow}>
-          <Text style={styles.hpBarSideLabel}>0</Text>
-          <Text style={styles.hpBarTitle}>HP</Text>
-          <Text style={styles.hpBarSideLabel}>{character.health}</Text>
-        </View>
-        <View style={styles.hpBarBackground}>
-          <View style={[styles.hpBarFill, { width: "100%" }]} />
-          <View style={styles.ticksContainer}>
-            {Array.from({ length: character.health }).map((_, i) => (
-              <View key={i} style={styles.tick} />
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.statsListContainer}>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabelList}>STR</Text>
-          <Text style={styles.statValueList}>{character.strength}</Text>
-          <Text style={styles.statLabelList}>DEF</Text>
-          <Text style={styles.statValueList}>{character.defense}</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabelList}>MAG</Text>
-          <Text style={styles.statValueList}>{character.magick}</Text>
-          <Text style={styles.statLabelList}>RES</Text>
-          <Text style={styles.statValueList}>{character.resistance}</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabelList}>SPD</Text>
-          <Text style={styles.statValueList}>{character.speed}</Text>
-          <Text style={styles.statLabelList}>SKL</Text>
-          <Text style={styles.statValueList}>{character.skill}</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabelList}>KNL</Text>
-          <Text style={styles.statValueList}>{character.knowledge}</Text>
-          <Text style={styles.statLabelList}>LCK</Text>
-          <Text style={styles.statValueList}>{character.luck}</Text>
-        </View>
-      </View>
-
-      <View style={styles.weaponSection}>
-        <Text style={styles.weaponTitle}>⚔️ {character.base_weapon}</Text>
-        <Text style={styles.abilityText}>{character.weapon_ability1}</Text>
-        <Text style={styles.abilityText}>{character.weapon_ability2}</Text>
-      </View>
-
-      <View style={styles.miscSection}>
-        <Text style={styles.miscText}>
-          Size: {character.size} | Move: {character.move_value}
+  const DetailedStats = ({ character }) => {
+    if (!character) return null;
+    return (
+      <View style={styles.statsContainerNoScroll}>
+        <Text style={styles.detailName}>{character.name}</Text>
+        <Text style={styles.detailLabel}>
+          {character.label} • {character.type}
         </Text>
+        <Text style={{ color: "#fff", marginTop: 8 }}>HP: {character.health}</Text>
+        <Text style={{ color: "#C9A66B", marginTop: 6 }}>
+          STR: {character.strength} DEF: {character.defense}
+        </Text>
+        <Text style={{ color: "#C9A66B" }}>
+          MAG: {character.magick} RES: {character.resistance}
+        </Text>
+        <Text style={{ color: "#C9A66B" }}>
+          SPD: {character.speed} SKL: {character.skill}
+        </Text>
+        <Text style={{ color: "#C9A66B" }}>
+          KNL: {character.knowledge} LCK: {character.luck}
+        </Text>
+        <Text style={{ color: "#fff", marginTop: 8 }}>Weapon: {character.base_weapon}</Text>
       </View>
-    </View>
-  );
+    );
+  };
+
+  const attackTarget = async (attackerId, targetId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/attack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, attackerId, targetId, userId }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        Alert.alert("Attack failed", json.message || "Could not perform attack");
+        return;
+      }
+      const json = await res.json();
+      setAttackedMap(json.attacked || {});
+      setSelectedAttacker(null);
+      // refresh teams / characters
+      await fetchBattleState();
+    } catch (err) {
+      console.log("Error performing attack:", err);
+    }
+  };
+
+  const onOppCharPress = (char) => {
+    // If we have an attacker selected and it's our turn, attack this target
+    if (battleStarted && currentTurnUserId === userId && selectedAttacker) {
+      attackTarget(selectedAttacker.id, char.id);
+      return;
+    }
+
+    // otherwise show details
+    setSelectedCharacter(char);
+  };
 
   return (
     <View style={styles.container}>
@@ -303,7 +379,7 @@ export default function BattleScreen() {
             <Text style={styles.sectionTitle}>{myTeamName}</Text>
             {myTeam &&
               myTeam.map((char) => (
-                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
+                <CompactCharacter key={char.id} character={char} onPress={() => onMyCharPress(char)} />
               ))}
             <View style={styles.readyRow}>
               <TouchableOpacity
@@ -332,7 +408,7 @@ export default function BattleScreen() {
             <Text style={styles.sectionTitle}>{opponentTeamName}</Text>
             {opponentTeam &&
               opponentTeam.map((char) => (
-                <CompactCharacter key={char.id} character={char} onPress={() => setSelectedCharacter(char)} />
+                <CompactCharacter key={char.id} character={char} onPress={() => onOppCharPress(char)} />
               ))}
             <View style={styles.readyRow}>
               <Text style={[styles.opponentReadyText, opponentReady ? styles.readyOnText : null]}>
