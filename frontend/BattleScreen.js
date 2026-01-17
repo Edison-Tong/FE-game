@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from "react-native";
-import { useRoute } from "@react-navigation/native";
-import { useState, useEffect, useContext } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert } from "react-native";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import { BACKEND_URL } from "@env";
 
@@ -9,12 +9,18 @@ import { BACKEND_URL } from "@env";
 export default function BattleScreen() {
   const route = useRoute();
   const { hostId, joinerId, userId, roomId, hostBattleTeamId, battleTeamId, joinerBattleTeamId } = route.params;
-  const [myTeam, setMyTeam] = useState(null);
+  const [myTeam, setMyTeam] = useState([]);
   const [myTeamName, setMyTeamName] = useState("My Team");
+  const [opponentTeam, setOpponentTeam] = useState([]);
+  const [opponentTeamName, setOpponentTeamName] = useState("Opponent Team");
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const isHost = userId === hostId;
   const myName = isHost ? "You (Host)" : "You (Joiner)";
   const opponentName = isHost ? "Opponent" : "Host";
+  const navigation = useNavigation();
+  const roomMissingHandled = useRef(false);
+  const myBattleTeamIdRef = useRef(null);
+  const oppBattleTeamIdRef = useRef(null);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -33,6 +39,9 @@ export default function BattleScreen() {
         }
 
         // If we have the team ids, fetch characters directly
+        myBattleTeamIdRef.current = myBattleTeamId;
+        oppBattleTeamIdRef.current = opponentBattleTeamId;
+
         if (myBattleTeamId) {
           const myCharsRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${myBattleTeamId}`);
           const myCharsData = await myCharsRes.json();
@@ -72,7 +81,98 @@ export default function BattleScreen() {
     };
 
     fetchTeams();
-  }, [hostId]);
+
+    // Poll for teams if one or both are missing (handles race where duplication finishes after navigation)
+    let teamsPoll = null;
+    if (roomId) {
+      teamsPoll = setInterval(async () => {
+        try {
+          if (myTeam.length > 0 && opponentTeam.length > 0) {
+            clearInterval(teamsPoll);
+            return;
+          }
+
+          const roomRes = await fetch(`${BACKEND_URL}/get-battle-teams?roomId=${roomId}`);
+          if (!roomRes.ok) return;
+          const roomData = await roomRes.json();
+          if (roomData.teams && roomData.teams.length > 0) {
+            for (const t of roomData.teams) {
+              if (t.user_id === userId) {
+                if (!myTeam.length) setMyTeam(t.characters);
+                if (t.team_name) setMyTeamName(t.team_name);
+              } else {
+                if (!opponentTeam.length) setOpponentTeam(t.characters);
+                if (t.team_name) setOpponentTeamName(t.team_name);
+              }
+            }
+            if (myTeam.length > 0 && opponentTeam.length > 0) {
+              clearInterval(teamsPoll);
+            }
+          }
+        } catch (err) {
+          console.log("Error polling battle teams:", err);
+        }
+      }, 1500);
+    }
+
+    // Poll room status to detect if the room gets deleted (other player left)
+    let poll = null;
+    if (roomId) {
+      poll = setInterval(async () => {
+        try {
+          // Primary check: room status
+          const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
+          if (res.status === 404) {
+            if (!roomMissingHandled.current) {
+              roomMissingHandled.current = true;
+              Alert.alert("Room closed", "The other player left the room.", [
+                {
+                  text: "OK",
+                  onPress: () => navigation.pop(1),
+                },
+              ]);
+            }
+            return;
+          }
+
+          // Secondary check: if opponent's duplicated team was removed, treat room as closed
+          const oppId = oppBattleTeamIdRef.current;
+          if (oppId) {
+            try {
+              const cRes = await fetch(`${BACKEND_URL}/get-characters?teamId=${oppId}`);
+              if (!cRes.ok) {
+                if (!roomMissingHandled.current) {
+                  roomMissingHandled.current = true;
+                  Alert.alert("Room closed", "The other player left the room.", [
+                    { text: "OK", onPress: () => navigation.pop(1) },
+                  ]);
+                }
+                return;
+              }
+              const cJson = await cRes.json();
+              if (!cJson.characters || cJson.characters.length === 0) {
+                if (!roomMissingHandled.current) {
+                  roomMissingHandled.current = true;
+                  Alert.alert("Room closed", "The other player left the room.", [
+                    { text: "OK", onPress: () => navigation.pop(1) },
+                  ]);
+                }
+                return;
+              }
+            } catch (err) {
+              console.log("Error checking opponent team:", err);
+            }
+          }
+        } catch (err) {
+          console.log("Error polling room status:", err);
+        }
+      }, 1500);
+    }
+
+    return () => {
+      if (poll) clearInterval(poll);
+    };
+  }, [hostId, roomId, userId, hostBattleTeamId, battleTeamId, joinerBattleTeamId]);
 
   const CompactCharacter = ({ character, onPress }) => {
     const typeColor = character.type && character.type.toLowerCase() === "mage" ? "#9D4EDD" : "#FF0000";

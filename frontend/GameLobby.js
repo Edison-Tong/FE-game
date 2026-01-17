@@ -220,7 +220,6 @@ export default function GameLobby() {
         body: JSON.stringify({ roomId }),
       });
       const data = await res.json();
-      console.log("Delete room response:", data);
 
       clearInterval(pollingInterval.current);
       clearTimeout(waitingAnimation.current);
@@ -254,6 +253,9 @@ export default function GameLobby() {
       if (data.message === "Joined room") {
         setShowJoinModal(false);
         setJoinCode("");
+
+        // Save roomId to shared context so the joiner can leave/cleanup the room
+        setRoomId(data.roomId);
 
         // Duplicate the selected team for battle
         const battleTeamId = await duplicateTeamForBattle(selectedTeam, data.roomId);

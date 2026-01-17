@@ -418,8 +418,8 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
       return res.status(404).json({ message: "Original team not found" });
     }
     const origTeam = teamResult.rows[0];
-    // Create new team (battle copy)
-    const battleTeamName = origTeam.team_name + " (Battle Copy " + Date.now() + ")";
+    // Create new team (battle copy) - keep original team name
+    const battleTeamName = origTeam.team_name;
     const newTeamResult = await pool.query(
       "INSERT INTO teams (user_id, team_name, char_count, room_id) VALUES ($1, $2, $3, $4) RETURNING id, team_name, user_id, char_count, room_id",
       [userId, battleTeamName, origTeam.char_count || 6, roomId]
