@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { BACKEND_URL } from "@env";
 import { weaponsData } from "./WeaponsData";
 
@@ -17,10 +17,12 @@ export default function BattleScreen() {
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalChar, setStatModalChar] = useState(null);
   const [battleModalVisible, setBattleModalVisible] = useState(false);
-  const [battleAttacker, setBattleAttacker] = useState(null);
-  const [battleDefender, setBattleDefender] = useState(null);
+  const [battleAttackerId, setBattleAttackerId] = useState(null);
+  const [battleDefenderId, setBattleDefenderId] = useState(null);
   const [isPerformingAttack, setIsPerformingAttack] = useState(false);
   const pollRef = useRef(null);
+  const battleModalAttackerRef = useRef(null);
+  const battleModalDefenderRef = useRef(null);
   // helper: weapon lookup
   const getWeaponStats = (character) => {
     try {
@@ -101,9 +103,11 @@ export default function BattleScreen() {
           );
         }
         setSelectedAttackerId(null);
-        setBattleAttacker(null);
-        setBattleDefender(null);
+        setBattleAttackerId(null);
+        setBattleDefenderId(null);
         setBattleModalVisible(false);
+        battleModalAttackerRef.current = null;
+        battleModalDefenderRef.current = null;
       } else {
         let msg = "Could not perform attack";
         try {
@@ -442,8 +446,11 @@ export default function BattleScreen() {
                       const attackerObj = myTeam
                         ? myTeam.characters.find((ch) => String(ch.id) === String(selectedAttackerId))
                         : null;
-                      setBattleAttacker(attackerObj);
-                      setBattleDefender(c);
+                      // Store the full character objects in refs so they persist across polling updates
+                      battleModalAttackerRef.current = attackerObj;
+                      battleModalDefenderRef.current = c;
+                      setBattleAttackerId(attackerObj ? attackerObj.id : null);
+                      setBattleDefenderId(c.id);
                       setBattleModalVisible(true);
                       return;
                     }
@@ -521,18 +528,73 @@ export default function BattleScreen() {
       </TouchableOpacity>
       {/* Modals (local implementations) */}
       <LocalStatModal visible={statModalVisible} character={statModalChar} onClose={closeStatModal} />
-      <LocalBattleModal
-        visible={battleModalVisible}
-        attacker={battleAttacker}
-        defender={battleDefender}
-        onCancel={() => {
-          setBattleModalVisible(false);
-          setBattleAttacker(null);
-          setBattleDefender(null);
-        }}
-        onConfirm={(attId, defId) => handleAttack(defId, attId)}
-        isBusy={isPerformingAttack}
-      />
+      {useMemo(() => {
+        // Prefer character objects from refs (stored when modal was opened) to avoid flicker from polling updates
+        const attacker = battleModalAttackerRef.current;
+        const defender = battleModalDefenderRef.current;
+
+        // Fall back to finding from current teams if refs are empty (should rarely happen)
+        if (!attacker || !defender) {
+          const allChars = (teams || []).flatMap((t) => t.characters || []);
+          const attackerObj = battleAttackerId
+            ? allChars.find((ch) => String(ch.id) === String(battleAttackerId))
+            : null;
+          const defenderObj = battleDefenderId
+            ? allChars.find((ch) => String(ch.id) === String(battleDefenderId))
+            : null;
+
+          const makePlaceholder = (id) => ({
+            id,
+            name: `Char ${id}`,
+            health: initialHealths && initialHealths[id] != null ? initialHealths[id] : 0,
+            max_health: initialHealths && initialHealths[id] != null ? initialHealths[id] : 20,
+            base_weapon: "",
+            type: "",
+            label: "",
+            strength: 0,
+            magick: 0,
+            defense: 0,
+            resistance: 0,
+          });
+
+          const finalAttacker = attackerObj || (battleAttackerId ? makePlaceholder(battleAttackerId) : null);
+          const finalDefender = defenderObj || (battleDefenderId ? makePlaceholder(battleDefenderId) : null);
+
+          return (
+            <LocalBattleModal
+              visible={battleModalVisible}
+              attacker={finalAttacker}
+              defender={finalDefender}
+              onCancel={() => {
+                setBattleModalVisible(false);
+                setBattleAttackerId(null);
+                setBattleDefenderId(null);
+                battleModalAttackerRef.current = null;
+                battleModalDefenderRef.current = null;
+              }}
+              onConfirm={(attId, defId) => handleAttack(defId, attId)}
+              isBusy={isPerformingAttack}
+            />
+          );
+        }
+
+        return (
+          <LocalBattleModal
+            visible={battleModalVisible}
+            attacker={attacker}
+            defender={defender}
+            onCancel={() => {
+              setBattleModalVisible(false);
+              setBattleAttackerId(null);
+              setBattleDefenderId(null);
+              battleModalAttackerRef.current = null;
+              battleModalDefenderRef.current = null;
+            }}
+            onConfirm={(attId, defId) => handleAttack(defId, attId)}
+            isBusy={isPerformingAttack}
+          />
+        );
+      }, [battleModalVisible, isPerformingAttack])}
     </View>
   );
 }
@@ -783,5 +845,4 @@ const modalStyles = StyleSheet.create({
   statLabel: { color: "#C9A66B" },
   statValue: { color: "#fff", fontWeight: "700" },
 });
-
 /* Modal component rendered at bottom of file via state */
