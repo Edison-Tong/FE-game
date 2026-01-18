@@ -24,6 +24,7 @@ export default function BattleScreen() {
   const battleModalAttackerRef = useRef(null);
   const battleModalDefenderRef = useRef(null);
   const statModalCharRef = useRef(null);
+
   // helper: weapon lookup
   const getWeaponStats = (character) => {
     try {
@@ -86,6 +87,9 @@ export default function BattleScreen() {
       block: def + res + lck,
     };
   };
+
+  // height reserved for the confirm/cancel area inside battle modal (ignored when calculating thirds)
+  const CONFIRM_AREA_HEIGHT = 80;
 
   const renderHealthBar = (character) => {
     const maxHealth =
@@ -259,7 +263,7 @@ export default function BattleScreen() {
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
-          <View style={modalStyles.content}>
+          <View style={[modalStyles.content, modalStyles.statContent, { padding: 20 }]}>
             <TouchableOpacity style={modalStyles.closeButton} onPress={onClose}>
               <Text style={modalStyles.closeText}>×</Text>
             </TouchableOpacity>
@@ -399,55 +403,84 @@ export default function BattleScreen() {
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
-          <View style={[modalStyles.content, { flexDirection: "row", padding: 20 }]}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={modalStyles.detailName}>{attacker.name}</Text>
-              <Text style={modalStyles.detailLabel}>
-                {attacker.label} • {attacker.type}
-              </Text>
-              {renderHealthBar(attacker)}
-              <View style={{ height: 8 }} />
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Power</Text>
-                <Text style={modalStyles.statValue}>{atkStats.power}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (M)</Text>
-                <Text style={modalStyles.statValue}>{atkStats.protection.melee}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (R)</Text>
-                <Text style={modalStyles.statValue}>{atkStats.protection.magic}</Text>
-              </View>
-            </View>
-            <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 8 }} />
-            <View style={{ flex: 1, paddingLeft: 8 }}>
-              <Text style={modalStyles.detailName}>{defender.name}</Text>
-              <Text style={modalStyles.detailLabel}>
-                {defender.label} • {defender.type}
-              </Text>
-              {renderHealthBar(defender)}
-              <View style={{ height: 8 }} />
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Power</Text>
-                <Text style={modalStyles.statValue}>{defStats.power}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (M)</Text>
-                <Text style={modalStyles.statValue}>{defStats.protection.melee}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (R)</Text>
-                <Text style={modalStyles.statValue}>{defStats.protection.magic}</Text>
-              </View>
-            </View>
+          <View style={[modalStyles.content, { padding: 20, paddingBottom: 20 + CONFIRM_AREA_HEIGHT }]}>
             <TouchableOpacity style={modalStyles.closeButton} onPress={onCancel}>
               <Text style={modalStyles.closeText}>×</Text>
             </TouchableOpacity>
+
+            <View style={{ flex: 1 }}>
+              {/* Top third: attacker */}
+              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
+                <Text style={modalStyles.detailName}>{attacker.name}</Text>
+                <Text style={modalStyles.detailLabel}>
+                  {attacker.label} • {attacker.type}
+                </Text>
+                <View style={{ height: 8 }} />
+                <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
+                <View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Agility</Text>
+                    <Text style={modalStyles.statValue}>{atkStats.agility}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Accuracy</Text>
+                    <Text style={modalStyles.statValue}>{atkStats.accuracy}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Evasion</Text>
+                    <Text style={modalStyles.statValue}>{atkStats.evasion}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Critical</Text>
+                    <Text style={modalStyles.statValue}>{atkStats.critical}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Block</Text>
+                    <Text style={modalStyles.statValue}>{atkStats.block}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Middle third: intentionally empty for now */}
+              <View style={{ flex: 1 }} />
+
+              {/* Bottom third: defender */}
+              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
+                <Text style={modalStyles.detailName}>{defender.name}</Text>
+                <Text style={modalStyles.detailLabel}>
+                  {defender.label} • {defender.type}
+                </Text>
+                <View style={{ height: 8 }} />
+                <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
+                <View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Agility</Text>
+                    <Text style={modalStyles.statValue}>{defStats.agility}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Accuracy</Text>
+                    <Text style={modalStyles.statValue}>{defStats.accuracy}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Evasion</Text>
+                    <Text style={modalStyles.statValue}>{defStats.evasion}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Critical</Text>
+                    <Text style={modalStyles.statValue}>{defStats.critical}</Text>
+                  </View>
+                  <View style={modalStyles.statRow}>
+                    <Text style={modalStyles.statLabel}>Block</Text>
+                    <Text style={modalStyles.statValue}>{defStats.block}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
             <View
               style={{
                 position: "absolute",
-                bottom: 12,
+                bottom: -10,
                 left: 12,
                 right: 12,
                 flexDirection: "row",
@@ -916,6 +949,14 @@ const modalStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#C9A66B",
   },
+
+  /* shorter variant for long-press stat modal */
+  statContent: {
+    maxHeight: "70%",
+    height: "68%",
+    width: "86%",
+  },
+
   closeButton: {
     position: "absolute",
     top: 8,
