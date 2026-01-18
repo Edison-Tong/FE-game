@@ -254,6 +254,8 @@ export default function BattleScreen() {
     if (!character) return null;
     const weapon = ((weaponsData.weapons || {})[(character.base_weapon || "").toLowerCase()] || {}).stats || {};
     const allStats = computeAllStats(character);
+    const isMage = character.type && String(character.type).toLowerCase() === "mage";
+    const powerLabel = isMage ? "Power (Magic)" : "Power (Melee)";
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -346,7 +348,7 @@ export default function BattleScreen() {
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <View style={modalStyles.statRow}>
-                      <Text style={modalStyles.statLabel}>Power</Text>
+                      <Text style={modalStyles.statLabel}>{powerLabel}</Text>
                       <Text style={modalStyles.statValue}>{allStats.power}</Text>
                     </View>
                     <View style={modalStyles.statRow}>
@@ -397,7 +399,7 @@ export default function BattleScreen() {
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
-          <View style={[modalStyles.content, { flexDirection: "row", padding: 12 }]}>
+          <View style={[modalStyles.content, { flexDirection: "row", padding: 20 }]}>
             <View style={{ flex: 1, paddingRight: 8 }}>
               <Text style={modalStyles.detailName}>{attacker.name}</Text>
               <Text style={modalStyles.detailLabel}>
@@ -906,10 +908,11 @@ const modalStyles = StyleSheet.create({
   },
   content: {
     backgroundColor: "#2B2B2B",
-    borderRadius: 12,
-    padding: 15,
-    maxHeight: "80%",
-    width: "86%",
+    borderRadius: 14,
+    padding: 20,
+    maxHeight: "98%",
+    height: "92%",
+    width: "92%",
     borderWidth: 2,
     borderColor: "#C9A66B",
   },
