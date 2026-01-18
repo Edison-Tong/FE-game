@@ -23,6 +23,7 @@ export default function BattleScreen() {
   const pollRef = useRef(null);
   const battleModalAttackerRef = useRef(null);
   const battleModalDefenderRef = useRef(null);
+  const statModalCharRef = useRef(null);
   // helper: weapon lookup
   const getWeaponStats = (character) => {
     try {
@@ -33,18 +34,56 @@ export default function BattleScreen() {
     }
   };
 
-  const computePower = (character) => {
+  // Consolidated stats computation: power, protection, and advanced stats
+  const computeAllStats = (character) => {
     const weapon = getWeaponStats(character);
     const isMage = character.type && String(character.type).toLowerCase() === "mage";
-    if (isMage) return (Number(character.magick) || 0) + (Number(weapon.mgk) || 0);
-    return (Number(character.strength) || 0) + (Number(weapon.str) || 0);
-  };
 
-  const computeProtection = (character) => {
-    const weapon = getWeaponStats(character);
-    return {
+    // Power
+    const power = isMage
+      ? (Number(character.magick) || 0) + (Number(weapon.mgk) || 0)
+      : (Number(character.strength) || 0) + (Number(weapon.str) || 0);
+
+    // Protection
+    const prot = {
       melee: (Number(character.defense) || 0) + (Number(weapon.def) || 0),
       magic: (Number(character.resistance) || 0) + (Number(weapon.res) || 0),
+    };
+
+    // Advanced stats
+    const spd = (Number(character.speed) || 0) + (Number(weapon.spd) || 0);
+    const skl = (Number(character.skill) || 0) + (Number(weapon.skl) || 0);
+    const knl = (Number(character.knowledge) || 0) + (Number(weapon.knl) || 0);
+    const lck = (Number(character.luck) || 0) + (Number(weapon.lck) || 0);
+    const def = (Number(character.defense) || 0) + (Number(weapon.def) || 0);
+    const res = (Number(character.resistance) || 0) + (Number(weapon.res) || 0);
+
+    return {
+      power,
+      protection: prot,
+      agility: spd,
+      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck),
+      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck),
+      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
+      block: def + res + lck,
+    };
+  };
+
+  const computeAdvancedStats = (character) => {
+    const weapon = getWeaponStats(character);
+    const spd = (Number(character.speed) || 0) + (Number(weapon.spd) || 0);
+    const skl = (Number(character.skill) || 0) + (Number(weapon.skl) || 0);
+    const knl = (Number(character.knowledge) || 0) + (Number(weapon.knl) || 0);
+    const lck = (Number(character.luck) || 0) + (Number(weapon.lck) || 0);
+    const def = (Number(character.defense) || 0) + (Number(weapon.def) || 0);
+    const res = (Number(character.resistance) || 0) + (Number(weapon.res) || 0);
+
+    return {
+      agility: spd,
+      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck),
+      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck),
+      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
+      block: def + res + lck,
     };
   };
 
@@ -74,6 +113,23 @@ export default function BattleScreen() {
         </View>
       </View>
     );
+  };
+
+  const getWeaponStatLabel = (key) => {
+    const labels = {
+      str: "Strength",
+      mgk: "Magick",
+      def: "Defense",
+      res: "Resistance",
+      spd: "Speed",
+      skl: "Skill",
+      knl: "Knowledge",
+      lck: "Luck",
+    };
+    if (labels[key]) return labels[key];
+    if (!key || typeof key !== "string") return String(key);
+    // Capitalize only the first letter for unknown keys (e.g. "range" -> "Range")
+    return key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
   };
 
   const handleAttack = async (targetId, attackerId = null) => {
@@ -179,30 +235,25 @@ export default function BattleScreen() {
   if (currentTurnUserId) turnText = currentTurnUserId === userId ? "It is your turn" : "It is your opponent's turn";
 
   const openStatModal = (char) => {
+    statModalCharRef.current = char;
     setStatModalChar(char);
     setStatModalVisible(true);
   };
   const closeStatModal = () => {
     setStatModalVisible(false);
     setStatModalChar(null);
+    statModalCharRef.current = null;
   };
 
   if (currentTurnUserId) {
     turnText = currentTurnUserId === userId ? "It is your turn" : "It is your opponent's turn";
   }
 
-  // Local modal components so they can access computePower, computeProtection, renderHealthBar
+  // Local modal components so they can access computeAllStats, computeAdvancedStats, renderHealthBar
   const LocalStatModal = ({ visible, character, onClose }) => {
     if (!character) return null;
     const weapon = ((weaponsData.weapons || {})[(character.base_weapon || "").toLowerCase()] || {}).stats || {};
-    const power =
-      character.type && String(character.type).toLowerCase() === "mage"
-        ? (Number(character.magick) || 0) + (Number(weapon.mg) || 0)
-        : (Number(character.strength) || 0) + (Number(weapon.str) || 0);
-    const prot = {
-      melee: (Number(character.defense) || 0) + (Number(weapon.def) || 0),
-      magic: (Number(character.resistance) || 0) + (Number(weapon.res) || 0),
-    };
+    const allStats = computeAllStats(character);
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -216,52 +267,47 @@ export default function BattleScreen() {
                 {character.label} • {character.type}
               </Text>
               <View style={{ marginBottom: 8 }}>{renderHealthBar(character)}</View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Power</Text>
-                <Text style={modalStyles.statValue}>{power}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (melee)</Text>
-                <Text style={modalStyles.statValue}>{prot.melee}</Text>
-              </View>
-              <View style={modalStyles.statRow}>
-                <Text style={modalStyles.statLabel}>Prot (magic)</Text>
-                <Text style={modalStyles.statValue}>{prot.magic}</Text>
-              </View>
               <View style={{ height: 8 }} />
               <View>
-                <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Attributes</Text>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>STR</Text>
-                  <Text style={modalStyles.statValue}>{character.strength}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>MAG</Text>
-                  <Text style={modalStyles.statValue}>{character.magick}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>DEF</Text>
-                  <Text style={modalStyles.statValue}>{character.defense}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>RES</Text>
-                  <Text style={modalStyles.statValue}>{character.resistance}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>SPD</Text>
-                  <Text style={modalStyles.statValue}>{character.speed}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>SKL</Text>
-                  <Text style={modalStyles.statValue}>{character.skill}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>KNL</Text>
-                  <Text style={modalStyles.statValue}>{character.knowledge}</Text>
-                </View>
-                <View style={modalStyles.statRow}>
-                  <Text style={modalStyles.statLabel}>LCK</Text>
-                  <Text style={modalStyles.statValue}>{character.luck}</Text>
+                <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Stats</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Strength</Text>
+                      <Text style={modalStyles.statValue}>{character.strength}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Defense</Text>
+                      <Text style={modalStyles.statValue}>{character.defense}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Speed</Text>
+                      <Text style={modalStyles.statValue}>{character.speed}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Knowledge</Text>
+                      <Text style={modalStyles.statValue}>{character.knowledge}</Text>
+                    </View>
+                  </View>
+                  <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 4 }} />
+                  <View style={{ flex: 1, paddingLeft: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Magick</Text>
+                      <Text style={modalStyles.statValue}>{character.magick}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Resistance</Text>
+                      <Text style={modalStyles.statValue}>{character.resistance}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Skill</Text>
+                      <Text style={modalStyles.statValue}>{character.skill}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Luck</Text>
+                      <Text style={modalStyles.statValue}>{character.luck}</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
               <View style={{ height: 8 }} />
@@ -269,15 +315,73 @@ export default function BattleScreen() {
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Weapon</Text>
                 <Text style={{ color: "#fff", marginBottom: 6 }}>{character.base_weapon}</Text>
                 {weapon && Object.keys(weapon).length > 0 && (
-                  <View>
-                    {Object.entries(weapon).map(([k, v]) => (
-                      <View key={k} style={modalStyles.statRow}>
-                        <Text style={modalStyles.statLabel}>{k}</Text>
-                        <Text style={modalStyles.statValue}>{String(v)}</Text>
-                      </View>
-                    ))}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      {Object.entries(weapon)
+                        .slice(0, Math.ceil(Object.entries(weapon).length / 2))
+                        .map(([k, v]) => (
+                          <View key={k} style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{getWeaponStatLabel(k)}</Text>
+                            <Text style={modalStyles.statValue}>{String(v)}</Text>
+                          </View>
+                        ))}
+                    </View>
+                    <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 4 }} />
+                    <View style={{ flex: 1, paddingLeft: 8 }}>
+                      {Object.entries(weapon)
+                        .slice(Math.ceil(Object.entries(weapon).length / 2))
+                        .map(([k, v]) => (
+                          <View key={k} style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{getWeaponStatLabel(k)}</Text>
+                            <Text style={modalStyles.statValue}>{String(v)}</Text>
+                          </View>
+                        ))}
+                    </View>
                   </View>
                 )}
+              </View>
+              <View style={{ height: 8 }} />
+              <View>
+                <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Power</Text>
+                      <Text style={modalStyles.statValue}>{allStats.power}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Protection (Mel)</Text>
+                      <Text style={modalStyles.statValue}>{allStats.protection.melee}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Protection (Mag)</Text>
+                      <Text style={modalStyles.statValue}>{allStats.protection.magic}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Evasion</Text>
+                      <Text style={modalStyles.statValue}>{allStats.evasion}</Text>
+                    </View>
+                  </View>
+                  <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 4 }} />
+                  <View style={{ flex: 1, paddingLeft: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Agility</Text>
+                      <Text style={modalStyles.statValue}>{allStats.agility}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Accuracy</Text>
+                      <Text style={modalStyles.statValue}>{allStats.accuracy}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Critical</Text>
+                      <Text style={modalStyles.statValue}>{allStats.critical}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Block</Text>
+                      <Text style={modalStyles.statValue}>{allStats.block}</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
             </ScrollView>
           </View>
@@ -288,10 +392,8 @@ export default function BattleScreen() {
 
   const LocalBattleModal = ({ visible, attacker, defender, onCancel, onConfirm, isBusy }) => {
     if (!attacker || !defender) return null;
-    const atkPower = computePower(attacker);
-    const atkProt = computeProtection(attacker);
-    const defPower = computePower(defender);
-    const defProt = computeProtection(defender);
+    const atkStats = computeAllStats(attacker);
+    const defStats = computeAllStats(defender);
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -305,15 +407,15 @@ export default function BattleScreen() {
               <View style={{ height: 8 }} />
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Power</Text>
-                <Text style={modalStyles.statValue}>{atkPower}</Text>
+                <Text style={modalStyles.statValue}>{atkStats.power}</Text>
               </View>
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Prot (M)</Text>
-                <Text style={modalStyles.statValue}>{atkProt.melee}</Text>
+                <Text style={modalStyles.statValue}>{atkStats.protection.melee}</Text>
               </View>
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Prot (R)</Text>
-                <Text style={modalStyles.statValue}>{atkProt.magic}</Text>
+                <Text style={modalStyles.statValue}>{atkStats.protection.magic}</Text>
               </View>
             </View>
             <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 8 }} />
@@ -326,15 +428,15 @@ export default function BattleScreen() {
               <View style={{ height: 8 }} />
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Power</Text>
-                <Text style={modalStyles.statValue}>{defPower}</Text>
+                <Text style={modalStyles.statValue}>{defStats.power}</Text>
               </View>
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Prot (M)</Text>
-                <Text style={modalStyles.statValue}>{defProt.melee}</Text>
+                <Text style={modalStyles.statValue}>{defStats.protection.melee}</Text>
               </View>
               <View style={modalStyles.statRow}>
                 <Text style={modalStyles.statLabel}>Prot (R)</Text>
-                <Text style={modalStyles.statValue}>{defProt.magic}</Text>
+                <Text style={modalStyles.statValue}>{defStats.protection.magic}</Text>
               </View>
             </View>
             <TouchableOpacity style={modalStyles.closeButton} onPress={onCancel}>
@@ -387,7 +489,7 @@ export default function BattleScreen() {
             return myTeam.characters.map((c) => {
               const hasAttacked = attacked && attacked[c.id];
               const isSelected = selectedAttackerId === c.id && currentTurnUserId === userId;
-              const disabled = hasAttacked || currentTurnUserId !== userId;
+              const canSelect = !hasAttacked && currentTurnUserId === userId;
               return (
                 <TouchableOpacity
                   key={c.id}
@@ -396,10 +498,8 @@ export default function BattleScreen() {
                     hasAttacked ? styles.charCardDisabled : null,
                     isSelected ? styles.charCardSelected : null,
                   ]}
-                  disabled={disabled}
                   onPress={() => {
-                    if (disabled) return;
-                    setSelectedAttackerId(c.id);
+                    if (canSelect) setSelectedAttackerId(c.id);
                   }}
                   onLongPress={() => openStatModal(c)}
                 >
@@ -436,7 +536,6 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   key={c.id}
                   style={styles.charCard}
-                  disabled={!canBeTargeted}
                   onPress={() => {
                     if (!canBeTargeted) return;
                     // if an attacker is selected, open the Battle Modal instead of immediate attack
@@ -527,7 +626,10 @@ export default function BattleScreen() {
         )}
       </TouchableOpacity>
       {/* Modals (local implementations) */}
-      <LocalStatModal visible={statModalVisible} character={statModalChar} onClose={closeStatModal} />
+      {useMemo(() => {
+        const character = statModalCharRef.current;
+        return <LocalStatModal visible={statModalVisible} character={character} onClose={closeStatModal} />;
+      }, [statModalVisible])}
       {useMemo(() => {
         // Prefer character objects from refs (stored when modal was opened) to avoid flicker from polling updates
         const attacker = battleModalAttackerRef.current;
