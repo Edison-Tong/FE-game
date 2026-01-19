@@ -20,6 +20,7 @@ export default function BattleScreen() {
   const [battleAttackerId, setBattleAttackerId] = useState(null);
   const [battleDefenderId, setBattleDefenderId] = useState(null);
   const [isPerformingAttack, setIsPerformingAttack] = useState(false);
+  const [battleResults, setBattleResults] = useState(null);
   const pollRef = useRef(null);
   const battleModalAttackerRef = useRef(null);
   const battleModalDefenderRef = useRef(null);
@@ -144,6 +145,13 @@ export default function BattleScreen() {
     }
     if (currentTurnUserId !== userId) return;
 
+    // capture pre-attack health for simple diffing if server doesn't return detailed events
+    const allChars = (teams || []).flatMap((t) => t.characters || []);
+    const attackerObjBefore = allChars.find((c) => String(c.id) === String(attacker));
+    const defenderObjBefore = allChars.find((c) => String(c.id) === String(targetId));
+    const preAttHealth = attackerObjBefore ? Number(attackerObjBefore.health || 0) : 0;
+    const preDefHealth = defenderObjBefore ? Number(defenderObjBefore.health || 0) : 0;
+
     setIsPerformingAttack(true);
     try {
       const res = await fetch(`${BACKEND_URL}/attack`, {
@@ -162,12 +170,52 @@ export default function BattleScreen() {
             }))
           );
         }
-        setSelectedAttackerId(null);
-        setBattleAttackerId(null);
-        setBattleDefenderId(null);
-        setBattleModalVisible(false);
-        battleModalAttackerRef.current = null;
-        battleModalDefenderRef.current = null;
+        // prefer server-provided events if available
+        if (data.results && Array.isArray(data.results) && data.results.length) {
+          setBattleResults(data.results);
+          // keep attacker selected cleared but keep modal open so results display
+          setSelectedAttackerId(null);
+          setBattleAttackerId(attacker);
+          setBattleDefenderId(targetId);
+          // keep modal visible to show results
+          setBattleModalVisible(true);
+        } else {
+          // infer a simple attacker->defender event using health diffs
+          const inferred = [];
+          let newDefHealth = preDefHealth;
+          if (data.updatedTarget && data.updatedTarget.health != null)
+            newDefHealth = Number(data.updatedTarget.health || 0);
+          const dmg = Math.max(0, preDefHealth - newDefHealth);
+          if (dmg > 0) {
+            inferred.push({ actor: "attacker", type: "hit", damage: dmg });
+          } else {
+            inferred.push({ actor: "attacker", type: "miss" });
+          }
+
+          // try to infer a counterattack if server returned an updated attacker
+          if (data.updatedAttacker && data.updatedAttacker.health != null) {
+            const newAttHealth = Number(data.updatedAttacker.health || 0);
+            const dmgAtk = Math.max(0, preAttHealth - newAttHealth);
+            if (dmgAtk > 0) inferred.push({ actor: "defender", type: "hit", damage: dmgAtk });
+            else inferred.push({ actor: "defender", type: "miss" });
+            // also update teams with updatedAttacker
+            setTeams((prev) =>
+              prev.map((t) => ({
+                ...t,
+                characters: t.characters.map((c) => (c.id === data.updatedAttacker.id ? data.updatedAttacker : c)),
+              }))
+            );
+          }
+
+          setBattleResults(inferred);
+
+          // keep attacker selected cleared but keep modal open so results display
+          setSelectedAttackerId(null);
+          setBattleAttackerId(attacker);
+          setBattleDefenderId(targetId);
+          // keep modal visible to show results
+          setBattleModalVisible(true);
+        }
       } else {
         let msg = "Could not perform attack";
         try {
@@ -259,7 +307,7 @@ export default function BattleScreen() {
     const weapon = ((weaponsData.weapons || {})[(character.base_weapon || "").toLowerCase()] || {}).stats || {};
     const allStats = computeAllStats(character);
     const isMage = character.type && String(character.type).toLowerCase() === "mage";
-    const powerLabel = isMage ? "Power (Magic)" : "Power (Melee)";
+    const powerLabel = isMage ? "Power (Mag)" : "Power (Mel)";
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -270,7 +318,8 @@ export default function BattleScreen() {
             <ScrollView>
               <Text style={modalStyles.detailName}>{character.name}</Text>
               <Text style={modalStyles.detailLabel}>
-                {character.label} • {character.type}
+                {character.label} • {character.type} • size:{" "}
+                {character.size != null ? character.size : character.sizeValue != null ? character.sizeValue : "N/A"}
               </Text>
               <View style={{ marginBottom: 8 }}>{renderHealthBar(character)}</View>
               <View style={{ height: 8 }} />
@@ -411,67 +460,378 @@ export default function BattleScreen() {
             <View style={{ flex: 1 }}>
               {/* Top third: attacker */}
               <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
-                <Text style={modalStyles.detailName}>{attacker.name}</Text>
+                <Text style={modalStyles.detailName}>{attacker.name} 🔴</Text>
                 <Text style={modalStyles.detailLabel}>
-                  {attacker.label} • {attacker.type}
+                  {attacker.label} • {attacker.type} • size:{" "}
+                  {attacker.size != null ? attacker.size : attacker.sizeValue != null ? attacker.sizeValue : "N/A"}
                 </Text>
                 <View style={{ height: 8 }} />
+                <View style={{ marginBottom: 8 }}>{renderHealthBar(attacker)}</View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
-                <View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Agility</Text>
-                    <Text style={modalStyles.statValue}>{atkStats.agility}</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    {(() => {
+                      const atkIsMage = attacker.type && String(attacker.type).toLowerCase() === "mage";
+                      const atkPowerLabel = atkIsMage ? "Power (Mag)" : "Power (Mel)";
+                      const atkPowerVal = Number(atkStats.power || 0);
+                      // Determine which protection the attacker would use when defending against the defender's attack
+                      const defenderIsMage = defender.type && String(defender.type).toLowerCase() === "mage";
+                      const attackerDefProtLabel = defenderIsMage ? "Protection (Mag)" : "Protection (Mel)";
+                      const attackerDefProtVal = defenderIsMage
+                        ? Number(atkStats.protection.magic || 0)
+                        : Number(atkStats.protection.melee || 0);
+                      return (
+                        <>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{atkPowerLabel}</Text>
+                            <Text style={modalStyles.statValue}>{atkPowerVal}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{attackerDefProtLabel}</Text>
+                            <Text style={modalStyles.statValue}>{attackerDefProtVal}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Evasion</Text>
+                            <Text style={modalStyles.statValue}>{atkStats.evasion}</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
                   </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Accuracy</Text>
-                    <Text style={modalStyles.statValue}>{atkStats.accuracy}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Evasion</Text>
-                    <Text style={modalStyles.statValue}>{atkStats.evasion}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Critical</Text>
-                    <Text style={modalStyles.statValue}>{atkStats.critical}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Block</Text>
-                    <Text style={modalStyles.statValue}>{atkStats.block}</Text>
+                  <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 4 }} />
+                  <View style={{ flex: 1, paddingLeft: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Agility</Text>
+                      <Text style={modalStyles.statValue}>{atkStats.agility}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Accuracy</Text>
+                      <Text style={modalStyles.statValue}>{atkStats.accuracy}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Critical</Text>
+                      <Text style={modalStyles.statValue}>{atkStats.critical}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Block</Text>
+                      <Text style={modalStyles.statValue}>{atkStats.block}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
 
-              {/* Middle third: intentionally empty for now */}
-              <View style={{ flex: 1 }} />
+              {/* Middle third: battle outcome preview (damage, hit, crit, block) */}
+              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
+                {(() => {
+                  // Weapon base hit% (weapon stat key is "hit%")
+                  const atkWeapon = getWeaponStats(attacker) || {};
+                  const defWeapon = getWeaponStats(defender) || {};
+                  const baseHit = Number(atkWeapon["hit%"] || 0);
+                  const allyPower = Number(atkStats.power || 0);
+                  const enemyProt =
+                    attacker.type && String(attacker.type).toLowerCase() === "mage"
+                      ? Number(defStats.protection.magic || 0)
+                      : Number(defStats.protection.melee || 0);
+                  const dmg = Math.max(0, Math.round(allyPower - enemyProt));
+
+                  const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
+                  const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
+
+                  const defLuck = (Number(defender.luck) || 0) + Number(defWeapon.lck || 0);
+                  const critRaw = Number(atkStats.critical || 0) - defLuck;
+                  const critPct = Math.max(0, Math.round(critRaw));
+
+                  const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
+                  const blkPct = Math.max(0, Math.floor(blkRaw));
+
+                  // Defender -> Attacker (counter) calculations
+                  const defBaseHit = Number(defWeapon["hit%"] || 0);
+                  const defAllyPower = Number(defStats.power || 0);
+                  const enemyProtForDef =
+                    defender.type && String(defender.type).toLowerCase() === "mage"
+                      ? Number(atkStats.protection.magic || 0)
+                      : Number(atkStats.protection.melee || 0);
+                  const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
+
+                  const hitRawDef = defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
+                  const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
+
+                  const defCritRaw =
+                    Number(defStats.critical || 0) - ((Number(attacker.luck) || 0) + Number(atkWeapon.lck || 0));
+                  const critPctDef = Math.max(0, Math.round(defCritRaw));
+
+                  const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
+                  const blkPctDef = Math.max(0, Math.floor(blkRawDef));
+
+                  return (
+                    <>
+                      <View style={{ flexDirection: "row" }}>
+                        <View
+                          style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginRight: 6 }}
+                        >
+                          <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
+                            Attacker → Defender
+                          </Text>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>DMG</Text>
+                            <Text style={modalStyles.statValue}>{dmg}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Hit %</Text>
+                            <Text style={modalStyles.statValue}>{hitPct}%</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Crit %</Text>
+                            <Text style={modalStyles.statValue}>{critPct}%</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Blk %</Text>
+                            <Text style={modalStyles.statValue}>{blkPct}%</Text>
+                          </View>
+                        </View>
+
+                        <View style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginLeft: 6 }}>
+                          <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
+                            Defender → Attacker
+                          </Text>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>DMG</Text>
+                            <Text style={modalStyles.statValue}>{dmgDef}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Hit %</Text>
+                            <Text style={modalStyles.statValue}>{hitPctDef}%</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Crit %</Text>
+                            <Text style={modalStyles.statValue}>{critPctDef}%</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Blk %</Text>
+                            <Text style={modalStyles.statValue}>{blkPctDef}%</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={{ alignItems: "center", marginTop: 8 }}>
+                        {/* Attack sequence with results below each dot */}
+                        <View style={{ alignItems: "center" }}>
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "center" }}>
+                            {/* Red dot 1 (attacker attack 1) */}
+                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                              <Text style={{ fontSize: 20 }}>🔴</Text>
+                              {battleResults && battleResults.length > 0 && battleResults[0] && (
+                                <View style={{ marginTop: 4 }}>
+                                  {(() => {
+                                    const ev = battleResults[0];
+                                    const t = (ev.type || "").toLowerCase();
+                                    if (t === "hit") {
+                                      const dmg = Number(ev.damage || 0);
+                                      return (
+                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                          {dmg} DMG
+                                        </Text>
+                                      );
+                                    } else if (t === "crit" || ev.critical) {
+                                      const dmg = Number(ev.damage || 0) + 2 || 2;
+                                      return (
+                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                          {dmg} CRIT
+                                        </Text>
+                                      );
+                                    } else if (t === "dodge" || t === "evade") {
+                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                    } else if (t === "block") {
+                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                    } else if (t === "miss") {
+                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                    }
+                                    return null;
+                                  })()}
+                                </View>
+                              )}
+                            </View>
+
+                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
+                              →
+                            </Text>
+
+                            {/* Blue dot 1 (defender attack 1) */}
+                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                              <Text style={{ fontSize: 20 }}>🔵</Text>
+                              {battleResults && battleResults.length > 1 && battleResults[1] && (
+                                <View style={{ marginTop: 4 }}>
+                                  {(() => {
+                                    const ev = battleResults[1];
+                                    const t = (ev.type || "").toLowerCase();
+                                    if (t === "hit") {
+                                      const dmg = Number(ev.damage || 0);
+                                      return (
+                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                          {dmg} DMG
+                                        </Text>
+                                      );
+                                    } else if (t === "crit" || ev.critical) {
+                                      const dmg = Number(ev.damage || 0) + 2 || 2;
+                                      return (
+                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                          {dmg} CRIT
+                                        </Text>
+                                      );
+                                    } else if (t === "dodge" || t === "evade") {
+                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                    } else if (t === "block") {
+                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                    } else if (t === "miss") {
+                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                    }
+                                    return null;
+                                  })()}
+                                </View>
+                              )}
+                            </View>
+
+                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
+                              →
+                            </Text>
+
+                            {/* Red dot 2 (attacker attack 2) */}
+                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                              <Text style={{ fontSize: 20 }}>🔴</Text>
+                              {battleResults && battleResults.length > 2 && battleResults[2] && (
+                                <View style={{ marginTop: 4 }}>
+                                  {(() => {
+                                    const ev = battleResults[2];
+                                    const t = (ev.type || "").toLowerCase();
+                                    if (t === "hit") {
+                                      const dmg = Number(ev.damage || 0);
+                                      return (
+                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                          {dmg} DMG
+                                        </Text>
+                                      );
+                                    } else if (t === "crit" || ev.critical) {
+                                      const dmg = Number(ev.damage || 0) + 2 || 2;
+                                      return (
+                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                          {dmg} CRIT
+                                        </Text>
+                                      );
+                                    } else if (t === "dodge" || t === "evade") {
+                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                    } else if (t === "block") {
+                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                    } else if (t === "miss") {
+                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                    }
+                                    return null;
+                                  })()}
+                                </View>
+                              )}
+                            </View>
+
+                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
+                              →
+                            </Text>
+
+                            {/* Blue dot 2 (defender attack 2) */}
+                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                              <Text style={{ fontSize: 20 }}>🔵</Text>
+                              {battleResults && battleResults.length > 3 && battleResults[3] && (
+                                <View style={{ marginTop: 4 }}>
+                                  {(() => {
+                                    const ev = battleResults[3];
+                                    const t = (ev.type || "").toLowerCase();
+                                    if (t === "hit") {
+                                      const dmg = Number(ev.damage || 0);
+                                      return (
+                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                          {dmg} DMG
+                                        </Text>
+                                      );
+                                    } else if (t === "crit" || ev.critical) {
+                                      const dmg = Number(ev.damage || 0) + 2 || 2;
+                                      return (
+                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                          {dmg} CRIT
+                                        </Text>
+                                      );
+                                    } else if (t === "dodge" || t === "evade") {
+                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                    } else if (t === "block") {
+                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                    } else if (t === "miss") {
+                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                    }
+                                    return null;
+                                  })()}
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
 
               {/* Bottom third: defender */}
               <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
-                <Text style={modalStyles.detailName}>{defender.name}</Text>
+                <Text style={modalStyles.detailName}>{defender.name} 🔵 </Text>
                 <Text style={modalStyles.detailLabel}>
-                  {defender.label} • {defender.type}
+                  {defender.label} • {defender.type} • size: {defender.size}
                 </Text>
                 <View style={{ height: 8 }} />
+                <View style={{ marginBottom: 8 }}>{renderHealthBar(defender)}</View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
-                <View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Agility</Text>
-                    <Text style={modalStyles.statValue}>{defStats.agility}</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    {(() => {
+                      const atkIsMage = attacker.type && String(attacker.type).toLowerCase() === "mage";
+                      const defIsMage = defender.type && String(defender.type).toLowerCase() === "mage";
+                      const defPowerLabel = defIsMage ? "Power (Mag)" : "Power (Mel)";
+                      const defPowerVal = Number(defStats.power || 0);
+                      const defProtVal = atkIsMage
+                        ? Number(defStats.protection.magic || 0)
+                        : Number(defStats.protection.melee || 0);
+                      const defProtLabel = atkIsMage ? "Protection (Mag)" : "Protection (Mel)";
+                      return (
+                        <>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{defPowerLabel}</Text>
+                            <Text style={modalStyles.statValue}>{defPowerVal}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>{defProtLabel}</Text>
+                            <Text style={modalStyles.statValue}>{defProtVal}</Text>
+                          </View>
+                          <View style={modalStyles.statRow}>
+                            <Text style={modalStyles.statLabel}>Evasion</Text>
+                            <Text style={modalStyles.statValue}>{defStats.evasion}</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
                   </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Accuracy</Text>
-                    <Text style={modalStyles.statValue}>{defStats.accuracy}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Evasion</Text>
-                    <Text style={modalStyles.statValue}>{defStats.evasion}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Critical</Text>
-                    <Text style={modalStyles.statValue}>{defStats.critical}</Text>
-                  </View>
-                  <View style={modalStyles.statRow}>
-                    <Text style={modalStyles.statLabel}>Block</Text>
-                    <Text style={modalStyles.statValue}>{defStats.block}</Text>
+                  <View style={{ width: 1, backgroundColor: "#444", marginHorizontal: 4 }} />
+                  <View style={{ flex: 1, paddingLeft: 8 }}>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Agility</Text>
+                      <Text style={modalStyles.statValue}>{defStats.agility}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Accuracy</Text>
+                      <Text style={modalStyles.statValue}>{defStats.accuracy}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Critical</Text>
+                      <Text style={modalStyles.statValue}>{defStats.critical}</Text>
+                    </View>
+                    <View style={modalStyles.statRow}>
+                      <Text style={modalStyles.statLabel}>Block</Text>
+                      <Text style={modalStyles.statValue}>{defStats.block}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -485,21 +845,43 @@ export default function BattleScreen() {
                 right: 12,
                 flexDirection: "row",
                 justifyContent: "space-between",
+                zIndex: 60,
               }}
             >
               <TouchableOpacity
                 style={[styles.endTurnButton, { flex: 0.45, backgroundColor: "#444" }]}
-                onPress={onCancel}
+                onPress={() => {
+                  // cancel / close; also clear any pending results
+                  setBattleResults(null);
+                  onCancel();
+                }}
               >
                 <Text style={styles.endTurnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.endTurnButton, { flex: 0.45 }]}
-                onPress={() => onConfirm(attacker.id, defender.id)}
-                disabled={isBusy}
-              >
-                {isBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.endTurnText}>Confirm Attack</Text>}
-              </TouchableOpacity>
+              {battleResults && battleResults.length ? (
+                <TouchableOpacity
+                  style={[styles.endTurnButton, { flex: 0.45 }]}
+                  onPress={() => {
+                    // done: clear results and close modal
+                    setBattleResults(null);
+                    setBattleModalVisible(false);
+                    setBattleAttackerId(null);
+                    setBattleDefenderId(null);
+                    battleModalAttackerRef.current = null;
+                    battleModalDefenderRef.current = null;
+                  }}
+                >
+                  <Text style={styles.endTurnText}>Done</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.endTurnButton, { flex: 0.45 }]}
+                  onPress={() => onConfirm(attacker.id, defender.id)}
+                  disabled={isBusy}
+                >
+                  {isBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.endTurnText}>Confirm Attack</Text>}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
