@@ -634,7 +634,7 @@ app.get("/battle-state", async (req, res) => {
 
 // Perform an attack from an attacker's character to a target character
 app.post("/attack", async (req, res) => {
-  const { roomId, attackerId, targetId, userId } = req.body;
+  const { roomId, attackerId, targetId, userId, damage: clientDamage } = req.body;
   if (!roomId || !attackerId || !targetId || !userId) return res.status(400).json({ message: "Missing fields" });
 
   try {
@@ -664,8 +664,8 @@ app.post("/attack", async (req, res) => {
     const target = targetRes.rows[0];
     if (target.owner_id === userId) return res.status(400).json({ message: "Cannot attack your own character" });
 
-    // Simple damage calculation: subtract attacker's strength from target's health
-    const damage = attacker.strength || 1;
+    // Use client-provided damage if available, otherwise fallback to attacker's strength
+    const damage = clientDamage != null ? Number(clientDamage) : (attacker.strength || 1);
     const newHealth = Math.max(0, (target.health || 0) - damage);
     await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newHealth, targetId]);
 

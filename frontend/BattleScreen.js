@@ -139,7 +139,7 @@ export default function BattleScreen() {
   };
 
   const handleAttack = async (targetId, attackerId = null, options = {}) => {
-    const { skipModalReopen = false } = options;
+    const { skipModalReopen = false, damage } = options;
     const attacker = attackerId || selectedAttackerId;
     if (!attacker) {
       Alert.alert("Select Attacker", "Please select a character to attack with.");
@@ -159,7 +159,7 @@ export default function BattleScreen() {
       const res = await fetch(`${BACKEND_URL}/attack`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, attackerId: attacker, targetId, userId }),
+        body: JSON.stringify({ roomId, attackerId: attacker, targetId, userId, damage }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -460,6 +460,7 @@ export default function BattleScreen() {
     const [localConfirmPressed, setLocalConfirmPressed] = useState(false);
     const [previewResults, setPreviewResults] = useState(null);
     const [previewDefenderHealth, setPreviewDefenderHealth] = useState(null);
+    const [computedDamage, setComputedDamage] = useState(0);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
@@ -879,7 +880,7 @@ export default function BattleScreen() {
                     // POST the attack to backend (skip modal reopen)
                     try {
                       if (onConfirm && attackerId != null && defenderId != null) {
-                        onConfirm(attackerId, defenderId, { skipModalReopen: true });
+                        onConfirm(attackerId, defenderId, { skipModalReopen: true, damage: computedDamage });
                       }
                     } catch (e) {
                       console.log("onConfirm (Done) error", e);
@@ -915,6 +916,7 @@ export default function BattleScreen() {
                       setPreviewResults([ev]);
                       const newHealth = Math.max(0, Number(defender.health || 0) - (dmg || 0));
                       setPreviewDefenderHealth(newHealth);
+                      setComputedDamage(dmg);
                     } catch (e) {
                       console.log("preview compute error", e);
                     }
