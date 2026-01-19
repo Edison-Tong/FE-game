@@ -14,6 +14,7 @@ export default function BattleScreen() {
   const [localAttackedOverrides, setLocalAttackedOverrides] = useState({});
   const [selectedAttackerId, setSelectedAttackerId] = useState(null);
   const [opponentOrder, setOpponentOrder] = useState({});
+  const [teamOrder, setTeamOrder] = useState({});
   const [initialHealths, setInitialHealths] = useState({});
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalChar, setStatModalChar] = useState(null);
@@ -269,20 +270,35 @@ export default function BattleScreen() {
         } catch (e) {}
 
         try {
-          const opponent = (data.teams || []).find((t) => String(t.user_id) !== String(userId));
-          if (opponent) {
-            const teamKey = String(opponent.id);
-            setOpponentOrder((prev) => {
-              const existing = prev[teamKey] || [];
-              const idsNow = (opponent.characters || []).map((c) => c.id);
-              const merged = [...existing, ...idsNow.filter((id) => !existing.includes(id))];
-              const filtered = merged.filter((id) => idsNow.includes(id));
-              return { ...prev, [teamKey]: filtered };
-            });
-          }
+          // Maintain a stable order for every team so characters don't jump around in the UI
+          const teamsList = data.teams || [];
+          setTeamOrder((prev) => {
+            const next = { ...(prev || {}) };
+            for (const t of teamsList) {
+              try {
+                const teamKey = String(t.id);
+                const existing = (prev && prev[teamKey]) || [];
+                const idsNow = (t.characters || []).map((c) => c.id);
+                const merged = [...existing, ...idsNow.filter((id) => !existing.includes(id))];
+                const filtered = merged.filter((id) => idsNow.includes(id));
+                next[teamKey] = filtered;
+              } catch (e) {
+                // ignore per-team errors
+              }
+            }
+            return next;
+          });
         } catch (e) {}
 
-        if (selectedAttackerId && data.attacked && data.attacked[selectedAttackerId]) setSelectedAttackerId(null);
+        if (selectedAttackerId) {
+          const allChars = (data.teams || []).flatMap((t) => t.characters || []);
+          const sel = allChars.find((c) => String(c.id) === String(selectedAttackerId));
+          if (sel && Number(sel.health || 0) <= 0) {
+            setSelectedAttackerId(null);
+          } else if (data.attacked && data.attacked[selectedAttackerId]) {
+            setSelectedAttackerId(null);
+          }
+        }
       } catch (err) {
         console.log("BattleScreen: error fetching battle-state", err);
       }
@@ -504,7 +520,11 @@ export default function BattleScreen() {
                   {attacker.size != null ? attacker.size : attacker.sizeValue != null ? attacker.sizeValue : "N/A"}
                 </Text>
                 <View style={{ height: 8 }} />
-                <View style={{ marginBottom: 8 }}>{renderHealthBar(previewAttackerHealth != null ? { ...attacker, health: previewAttackerHealth } : attacker)}</View>
+                <View style={{ marginBottom: 8 }}>
+                  {renderHealthBar(
+                    previewAttackerHealth != null ? { ...attacker, health: previewAttackerHealth } : attacker
+                  )}
+                </View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1066,17 +1086,26 @@ export default function BattleScreen() {
           {(() => {
             const myTeam = teams.find((t) => String(t.user_id) === String(userId));
             if (!myTeam || !myTeam.characters) return <Text style={styles.noChars}>No characters</Text>;
-            return myTeam.characters.map((c) => {
+            // render my team using preserved order if available
+            const teamKey = String(myTeam.id);
+            const order = teamOrder[teamKey] || myTeam.characters.map((c) => c.id);
+            const charsById = {};
+            myTeam.characters.forEach((c) => (charsById[c.id] = c));
+            const ordered = order.map((id) => charsById[id]).filter(Boolean);
+            const missing = myTeam.characters.filter((c) => !order.includes(c.id));
+            const finalList = [...ordered, ...missing];
+            return finalList.map((c) => {
               const effectiveAttacked = { ...(attacked || {}), ...(localAttackedOverrides || {}) };
               const hasAttacked = effectiveAttacked && effectiveAttacked[c.id];
               const isSelected = selectedAttackerId === c.id && currentTurnUserId === userId;
-              const canSelect = !hasAttacked && currentTurnUserId === userId;
+              const isDead = (c.health || 0) <= 0;
+              const canSelect = !hasAttacked && currentTurnUserId === userId && !isDead;
               return (
                 <TouchableOpacity
                   key={c.id}
                   style={[
                     styles.charCard,
-                    hasAttacked ? styles.charCardDisabled : null,
+                    hasAttacked || isDead ? styles.charCardDisabled : null,
                     isSelected ? styles.charCardSelected : null,
                   ]}
                   onPress={() => {
@@ -1087,6 +1116,7 @@ export default function BattleScreen() {
                   <Text style={styles.charName}>{c.name || `Char ${c.id}`}</Text>
                   {renderHealthBar(c)}
                   <Text style={styles.weaponType}>{((c.base_weapon || "").toString() || "").toUpperCase()}</Text>
+                  {isDead && <Text style={styles.charKO}>KO</Text>}
                 </TouchableOpacity>
               );
             });
@@ -1103,7 +1133,7 @@ export default function BattleScreen() {
             if (!opponentTeam || !opponentTeam.characters) return <Text style={styles.noChars}>No opponent</Text>;
             // render opponent characters using preserved order if available
             const teamKey = String(opponentTeam.id);
-            const order = opponentOrder[teamKey] || opponentTeam.characters.map((c) => c.id);
+            const order = teamOrder[teamKey] || opponentTeam.characters.map((c) => c.id);
             const charsById = {};
             opponentTeam.characters.forEach((c) => (charsById[c.id] = c));
             const ordered = order.map((id) => charsById[id]).filter(Boolean);
@@ -1116,7 +1146,7 @@ export default function BattleScreen() {
               return (
                 <TouchableOpacity
                   key={c.id}
-                  style={styles.charCard}
+                  style={[styles.charCard, isDead ? styles.charCardDisabled : null]}
                   onPress={() => {
                     if (!canBeTargeted) return;
                     // if an attacker is selected, open the Battle Modal instead of immediate attack
@@ -1377,8 +1407,14 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   charCardSelected: {
+    backgroundColor: "#3F3A2A",
     borderWidth: 2,
     borderColor: "#FFD700",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 2,
   },
   charName: {
     color: "#FFF",
