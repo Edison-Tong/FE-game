@@ -634,7 +634,7 @@ app.get("/battle-state", async (req, res) => {
 
 // Perform an attack from an attacker's character to a target character
 app.post("/attack", async (req, res) => {
-  const { roomId, attackerId, targetId, userId, damage: clientDamage } = req.body;
+  const { roomId, attackerId, targetId, userId, damage: clientDamage, counterDamage: clientCounterDamage } = req.body;
   if (!roomId || !attackerId || !targetId || !userId) return res.status(400).json({ message: "Missing fields" });
 
   try {
@@ -669,12 +669,24 @@ app.post("/attack", async (req, res) => {
     const newHealth = Math.max(0, (target.health || 0) - damage);
     await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newHealth, targetId]);
 
+    // Optionally apply client-provided counter damage to the attacker
+    let updatedAttacker = null;
+    if (clientCounterDamage != null) {
+      const counter = Number(clientCounterDamage) || 0;
+      const newAttHealth = Math.max(0, (attacker.health || 0) - counter);
+      await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newAttHealth, attackerId]);
+      const updatedAttRes = await pool.query("SELECT * FROM characters WHERE id = $1", [attackerId]);
+      updatedAttacker = updatedAttRes.rows[0];
+    }
+
     // Mark attacker as having attacked this turn
     state.attacked[attackerId] = true;
 
-    // Return updated target and attacked map
+    // Return updated target and attacked map (and updated attacker if counter was applied)
     const updatedTargetRes = await pool.query("SELECT * FROM characters WHERE id = $1", [targetId]);
-    return res.json({ success: true, attacked: state.attacked, updatedTarget: updatedTargetRes.rows[0] });
+    const response = { success: true, attacked: state.attacked, updatedTarget: updatedTargetRes.rows[0] };
+    if (updatedAttacker) response.updatedAttacker = updatedAttacker;
+    return res.json(response);
   } catch (err) {
     console.error("Error performing attack:", err);
     return res.status(500).json({ message: "Internal server error" });

@@ -139,7 +139,7 @@ export default function BattleScreen() {
   };
 
   const handleAttack = async (targetId, attackerId = null, options = {}) => {
-    const { skipModalReopen = false, damage } = options;
+    const { skipModalReopen = false, damage, counterDamage } = options;
     const attacker = attackerId || selectedAttackerId;
     if (!attacker) {
       Alert.alert("Select Attacker", "Please select a character to attack with.");
@@ -159,7 +159,7 @@ export default function BattleScreen() {
       const res = await fetch(`${BACKEND_URL}/attack`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, attackerId: attacker, targetId, userId, damage }),
+        body: JSON.stringify({ roomId, attackerId: attacker, targetId, userId, damage, counterDamage }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -169,6 +169,14 @@ export default function BattleScreen() {
             prev.map((t) => ({
               ...t,
               characters: t.characters.map((c) => (c.id === data.updatedTarget.id ? data.updatedTarget : c)),
+            }))
+          );
+        }
+        if (data.updatedAttacker) {
+          setTeams((prev) =>
+            prev.map((t) => ({
+              ...t,
+              characters: t.characters.map((c) => (c.id === data.updatedAttacker.id ? data.updatedAttacker : c)),
             }))
           );
         }
@@ -462,12 +470,23 @@ export default function BattleScreen() {
     const [localConfirmPressed, setLocalConfirmPressed] = useState(false);
     const [previewResults, setPreviewResults] = useState(null);
     const [previewDefenderHealth, setPreviewDefenderHealth] = useState(null);
+    const [previewAttackerHealth, setPreviewAttackerHealth] = useState(null);
     const [computedDamage, setComputedDamage] = useState(0);
     const [computedCounterDamage, setComputedCounterDamage] = useState(0);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
     const resultsToShow = previewResults || battleResults;
+    useEffect(() => {
+      if (visible) {
+        setLocalConfirmPressed(false);
+        setPreviewResults(null);
+        setPreviewDefenderHealth(null);
+        setPreviewAttackerHealth(null);
+        setComputedDamage(0);
+        setComputedCounterDamage(0);
+      }
+    }, [visible]);
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -485,7 +504,7 @@ export default function BattleScreen() {
                   {attacker.size != null ? attacker.size : attacker.sizeValue != null ? attacker.sizeValue : "N/A"}
                 </Text>
                 <View style={{ height: 8 }} />
-                <View style={{ marginBottom: 8 }}>{renderHealthBar(attacker)}</View>
+                <View style={{ marginBottom: 8 }}>{renderHealthBar(previewAttackerHealth != null ? { ...attacker, health: previewAttackerHealth } : attacker)}</View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
@@ -891,7 +910,11 @@ export default function BattleScreen() {
                     // POST the attack to backend (skip modal reopen)
                     try {
                       if (onConfirm && attackerId != null && defenderId != null) {
-                        onConfirm(attackerId, defenderId, { skipModalReopen: true, damage: computedDamage });
+                        onConfirm(attackerId, defenderId, {
+                          skipModalReopen: true,
+                          damage: computedDamage,
+                          counterDamage: computedCounterDamage,
+                        });
                       }
                     } catch (e) {
                       console.log("onConfirm (Done) error", e);
@@ -946,11 +969,14 @@ export default function BattleScreen() {
                           attackerEvent = { actor: "attacker", type: "block" };
                           setPreviewDefenderHealth(Number(defender.health || 0));
                           setComputedDamage(0);
+                          setPreviewAttackerHealth(Number(attacker.health || 0));
                         } else {
                           attackerEvent = { actor: "attacker", type: "hit", damage: dmg };
                           const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
                           setPreviewDefenderHealth(newHealth);
                           setComputedDamage(dmg);
+                          // initialize preview attacker health to current (may be reduced by counter below)
+                          setPreviewAttackerHealth(Number(attacker.health || 0));
                         }
 
                         // Compute defender retaliation if defender is still alive
@@ -982,13 +1008,18 @@ export default function BattleScreen() {
                               if (isBlockedByAttacker) {
                                 defenderEvent = { actor: "defender", type: "block" };
                                 setComputedCounterDamage(0);
+                                // attacker health unchanged
+                                setPreviewAttackerHealth(Number(attacker.health || 0));
                               } else {
                                 defenderEvent = { actor: "defender", type: "hit", damage: dmgDef };
                                 setComputedCounterDamage(dmgDef);
+                                const newAttHealth = Math.max(0, Number(attacker.health || 0) - dmgDef);
+                                setPreviewAttackerHealth(newAttHealth);
                               }
                             } else {
                               defenderEvent = { actor: "defender", type: "miss" };
                               setComputedCounterDamage(0);
+                              setPreviewAttackerHealth(Number(attacker.health || 0));
                             }
                           } catch (e) {
                             defenderEvent = { actor: "defender", type: "miss" };
