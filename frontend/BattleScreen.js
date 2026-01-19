@@ -140,7 +140,7 @@ export default function BattleScreen() {
   };
 
   const handleAttack = async (targetId, attackerId = null, options = {}) => {
-    const { skipModalReopen = false, damage, counterDamage } = options;
+    const { skipModalReopen = false, damage, counterDamage, sequence } = options;
     const attacker = attackerId || selectedAttackerId;
     if (!attacker) {
       Alert.alert("Select Attacker", "Please select a character to attack with.");
@@ -157,14 +157,48 @@ export default function BattleScreen() {
 
     setIsPerformingAttack(true);
     try {
+      const body = { roomId, attackerId: attacker, targetId, userId };
+      if (options.sequence) body.sequence = options.sequence;
+      else {
+        body.damage = damage;
+        body.counterDamage = counterDamage;
+      }
       const res = await fetch(`${BACKEND_URL}/attack`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, attackerId: attacker, targetId, userId, damage, counterDamage }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.attacked) setAttacked(data.attacked);
+        // Apply any updated characters returned by server (supports sequence)
+        if (Array.isArray(data.updatedCharacters) && data.updatedCharacters.length > 0) {
+          setTeams((prev) =>
+            prev.map((t) => ({
+              ...t,
+              characters: t.characters.map((c) => {
+                const found = data.updatedCharacters.find((uc) => uc.id === c.id);
+                return found ? found : c;
+              }),
+            }))
+          );
+        }
+        // If we sent a sequence, prefer showing the client-computed previewResults
+        if (sequence && Array.isArray(sequence) && sequence.length > 0) {
+          const previewEv = sequence.map((s, idx) => {
+            const actor = idx % 2 === 0 ? "attacker" : "defender";
+            const type = s.type || (s.damage > 0 ? "hit" : "miss");
+            const ev = { actor, type };
+            if (type === "hit" && s.damage) ev.damage = s.damage;
+            return ev;
+          });
+          setBattleResults(previewEv);
+          setSelectedAttackerId(null);
+          setBattleAttackerId(attacker);
+          setBattleDefenderId(targetId);
+          if (!skipModalReopen) setBattleModalVisible(true);
+        }
+        // legacy single-target response handling
         if (data.updatedTarget) {
           setTeams((prev) =>
             prev.map((t) => ({
@@ -489,6 +523,7 @@ export default function BattleScreen() {
     const [previewAttackerHealth, setPreviewAttackerHealth] = useState(null);
     const [computedDamage, setComputedDamage] = useState(0);
     const [computedCounterDamage, setComputedCounterDamage] = useState(0);
+    const [computedSequence, setComputedSequence] = useState([]);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
@@ -501,6 +536,7 @@ export default function BattleScreen() {
         setPreviewAttackerHealth(null);
         setComputedDamage(0);
         setComputedCounterDamage(0);
+        setComputedSequence([]);
       }
     }, [visible]);
     return (
@@ -930,10 +966,18 @@ export default function BattleScreen() {
                     // POST the attack to backend (skip modal reopen)
                     try {
                       if (onConfirm && attackerId != null && defenderId != null) {
+                        const seqToSend =
+                          computedSequence && computedSequence.length > 0
+                            ? computedSequence
+                            : [
+                                { targetId: defenderId, damage: computedDamage },
+                                ...(computedCounterDamage
+                                  ? [{ targetId: attackerId, damage: computedCounterDamage }]
+                                  : []),
+                              ];
                         onConfirm(attackerId, defenderId, {
                           skipModalReopen: true,
-                          damage: computedDamage,
-                          counterDamage: computedCounterDamage,
+                          sequence: seqToSend,
                         });
                       }
                     } catch (e) {
@@ -953,109 +997,110 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
-                    // compute a simple local damage preview and apply immediately
                     try {
-                      const atkWeapon = getWeaponStats(attacker) || {};
-                      const defWeapon = getWeaponStats(defender) || {};
-                      const baseHit = Number(atkWeapon["hit%"] || 0);
-                      const allyPower = Number(atkStats.power || 0);
-                      const enemyProt =
-                        attacker.type && String(attacker.type).toLowerCase() === "mage"
-                          ? Number(defStats.protection.magic || 0)
-                          : Number(defStats.protection.melee || 0);
-                      const dmg = Math.max(0, Math.round(allyPower - enemyProt));
+                      const seq = [];
+                      const previewEvents = [];
 
-                      // compute hit% using same formula shown in the preview box
-                      const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
-                      const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
+                      // Helper to compute one attack from src to tgt using src/target stats
+                      const computeHit = (src, srcStats, tgt, tgtStats) => {
+                        const weapon = getWeaponStats(src) || {};
+                        const baseHit = Number(weapon["hit%"] || 0);
+                        const power = Number(srcStats.power || 0);
+                        const prot =
+                          src.type && String(src.type).toLowerCase() === "mage"
+                            ? Number(tgtStats.protection.magic || 0)
+                            : Number(tgtStats.protection.melee || 0);
+                        const damage = Math.max(0, Math.round(power - prot));
 
-                      // compute block % (defender blocking this attack)
-                      const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
-                      const blkPct = Math.max(0, Math.floor(blkRaw));
+                        const hitRaw = baseHit + (Number(srcStats.accuracy || 0) - Number(tgtStats.evasion || 0));
+                        const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
 
-                      // roll for hit/miss
-                      const roll = Math.random() * 100;
-                      const isHit = roll < hitPct;
+                        const blkRaw = Number(tgtStats.block || 0) - Number(srcStats.accuracy || 0);
+                        const blkPct = Math.max(0, Math.floor(blkRaw));
 
-                      if (isHit && dmg > 0) {
-                        // roll for block after a successful hit
+                        const roll = Math.random() * 100;
+                        const isHit = roll < hitPct;
+
+                        if (!isHit || damage <= 0) return { type: "miss", damage: 0 };
+
                         const blockRoll = Math.random() * 100;
                         const isBlocked = blockRoll < blkPct;
+                        if (isBlocked) return { type: "block", damage: 0 };
+                        return { type: "hit", damage };
+                      };
 
-                        let attackerEvent;
-                        let defenderEvent = { actor: "defender", type: "miss" };
+                      // A1
+                      const a1 = computeHit(attacker, atkStats, defender, defStats);
+                      seq.push({ targetId: defender.id, damage: a1.damage, type: a1.type });
+                      previewEvents.push(
+                        a1.type === "hit"
+                          ? { actor: "attacker", type: "hit", damage: a1.damage }
+                          : { actor: "attacker", type: a1.type }
+                      );
+                      const defAfterA1 = Math.max(0, Number(defender.health || 0) - a1.damage);
+                      setPreviewDefenderHealth(defAfterA1);
+                      setComputedDamage(a1.damage || 0);
 
-                        if (isBlocked) {
-                          attackerEvent = { actor: "attacker", type: "block" };
-                          setPreviewDefenderHealth(Number(defender.health || 0));
-                          setComputedDamage(0);
-                          setPreviewAttackerHealth(Number(attacker.health || 0));
-                        } else {
-                          attackerEvent = { actor: "attacker", type: "hit", damage: dmg };
-                          const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
-                          setPreviewDefenderHealth(newHealth);
-                          setComputedDamage(dmg);
-                          // initialize preview attacker health to current (may be reduced by counter below)
-                          setPreviewAttackerHealth(Number(attacker.health || 0));
-                        }
-
-                        // Compute defender retaliation if defender is still alive
-                        const defenderAlive =
-                          Number(defender.health || 0) > 0 && (isBlocked || Number(defender.health || 0) - dmg > 0);
-                        if (defenderAlive) {
-                          try {
-                            const defWeapon = getWeaponStats(defender) || {};
-                            const defBaseHit = Number(defWeapon["hit%"] || 0);
-                            const defAllyPower = Number(defStats.power || 0);
-                            const enemyProtForDef =
-                              defender.type && String(defender.type).toLowerCase() === "mage"
-                                ? Number(atkStats.protection.magic || 0)
-                                : Number(atkStats.protection.melee || 0);
-                            const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
-
-                            const hitRawDef =
-                              defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
-                            const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
-
-                            const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
-                            const blkPctDef = Math.max(0, Math.floor(blkRawDef));
-
-                            const rollDef = Math.random() * 100;
-                            const isHitDef = rollDef < hitPctDef;
-                            if (isHitDef && dmgDef > 0) {
-                              const blockRollDef = Math.random() * 100;
-                              const isBlockedByAttacker = blockRollDef < blkPctDef;
-                              if (isBlockedByAttacker) {
-                                defenderEvent = { actor: "defender", type: "block" };
-                                setComputedCounterDamage(0);
-                                // attacker health unchanged
-                                setPreviewAttackerHealth(Number(attacker.health || 0));
-                              } else {
-                                defenderEvent = { actor: "defender", type: "hit", damage: dmgDef };
-                                setComputedCounterDamage(dmgDef);
-                                const newAttHealth = Math.max(0, Number(attacker.health || 0) - dmgDef);
-                                setPreviewAttackerHealth(newAttHealth);
-                              }
-                            } else {
-                              defenderEvent = { actor: "defender", type: "miss" };
-                              setComputedCounterDamage(0);
-                              setPreviewAttackerHealth(Number(attacker.health || 0));
-                            }
-                          } catch (e) {
-                            defenderEvent = { actor: "defender", type: "miss" };
-                            setComputedCounterDamage(0);
-                          }
-                        }
-
-                        setPreviewResults([attackerEvent, defenderEvent]);
-                      } else {
-                        // miss (either hit roll failed or dmg == 0)
-                        const ev = { actor: "attacker", type: "miss" };
-                        setPreviewResults([ev]);
-                        setPreviewDefenderHealth(Number(defender.health || 0));
-                        setComputedDamage(0);
-                        setComputedCounterDamage(0);
+                      if (defAfterA1 <= 0) {
+                        // defender died; sequence ends
+                        setComputedSequence(seq);
+                        setPreviewResults(previewEvents);
+                        setPreviewAttackerHealth(Number(attacker.health || 0));
+                        setLocalConfirmPressed(true);
+                        return;
                       }
+
+                      // D1
+                      const d1 = computeHit(defender, defStats, attacker, atkStats);
+                      seq.push({ targetId: attacker.id, damage: d1.damage, type: d1.type });
+                      previewEvents.push(
+                        d1.type === "hit"
+                          ? { actor: "defender", type: "hit", damage: d1.damage }
+                          : { actor: "defender", type: d1.type }
+                      );
+                      const attAfterD1 = Math.max(0, Number(attacker.health || 0) - d1.damage);
+                      setPreviewAttackerHealth(attAfterD1);
+                      setComputedCounterDamage(d1.damage || 0);
+
+                      if (attAfterD1 <= 0) {
+                        setComputedSequence(seq);
+                        setPreviewResults(previewEvents);
+                        setLocalConfirmPressed(true);
+                        return;
+                      }
+
+                      // A2 (only if both alive)
+                      const a2 = computeHit(attacker, atkStats, { ...defender, health: defAfterA1 }, defStats);
+                      seq.push({ targetId: defender.id, damage: a2.damage, type: a2.type });
+                      previewEvents.push(
+                        a2.type === "hit"
+                          ? { actor: "attacker", type: "hit", damage: a2.damage }
+                          : { actor: "attacker", type: a2.type }
+                      );
+                      const defAfterA2 = Math.max(0, defAfterA1 - a2.damage);
+                      setPreviewDefenderHealth(defAfterA2);
+
+                      if (defAfterA2 <= 0) {
+                        setComputedSequence(seq);
+                        setPreviewResults(previewEvents);
+                        setLocalConfirmPressed(true);
+                        return;
+                      }
+
+                      // D2
+                      const d2 = computeHit(defender, defStats, { ...attacker, health: attAfterD1 }, atkStats);
+                      seq.push({ targetId: attacker.id, damage: d2.damage, type: d2.type });
+                      previewEvents.push(
+                        d2.type === "hit"
+                          ? { actor: "defender", type: "hit", damage: d2.damage }
+                          : { actor: "defender", type: d2.type }
+                      );
+                      const attAfterD2 = Math.max(0, attAfterD1 - d2.damage);
+                      setPreviewAttackerHealth(attAfterD2);
+
+                      // finalize
+                      setComputedSequence(seq);
+                      setPreviewResults(previewEvents);
                     } catch (e) {
                       console.log("preview compute error", e);
                     }

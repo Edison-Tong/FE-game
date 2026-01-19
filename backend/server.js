@@ -634,7 +634,15 @@ app.get("/battle-state", async (req, res) => {
 
 // Perform an attack from an attacker's character to a target character
 app.post("/attack", async (req, res) => {
-  const { roomId, attackerId, targetId, userId, damage: clientDamage, counterDamage: clientCounterDamage } = req.body;
+  const {
+    roomId,
+    attackerId,
+    targetId,
+    userId,
+    damage: clientDamage,
+    counterDamage: clientCounterDamage,
+    sequence,
+  } = req.body;
   if (!roomId || !attackerId || !targetId || !userId) return res.status(400).json({ message: "Missing fields" });
 
   try {
@@ -664,6 +672,43 @@ app.post("/attack", async (req, res) => {
     const target = targetRes.rows[0];
     if (target.owner_id === userId) return res.status(400).json({ message: "Cannot attack your own character" });
 
+    // If a sequence of hits was provided, apply them in order.
+    // Sequence format: [{ targetId: <id>, damage: <number> }, ...]
+    if (Array.isArray(sequence) && sequence.length > 0) {
+      console.log("/attack: sequence received:", JSON.stringify(sequence));
+      const updatedMap = {};
+
+      for (const step of sequence) {
+        const stepTargetId = step.targetId;
+        const stepDamage = Number(step.damage) || 0;
+        // fetch current target row
+        const curRes = await pool.query("SELECT * FROM characters WHERE id = $1", [stepTargetId]);
+        if (curRes.rows.length === 0) {
+          console.log(`/attack: step target ${stepTargetId} not found, skipping`);
+          continue;
+        }
+        const cur = curRes.rows[0];
+        const newHealth = Math.max(0, (cur.health || 0) - stepDamage);
+        await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newHealth, stepTargetId]);
+        const updatedRes = await pool.query("SELECT * FROM characters WHERE id = $1", [stepTargetId]);
+        updatedMap[stepTargetId] = updatedRes.rows[0];
+        console.log(`/attack: applied ${stepDamage} to ${stepTargetId}, health ${cur.health} -> ${newHealth}`);
+
+        // stop processing further steps if this target died
+        if (newHealth <= 0) {
+          console.log(`/attack: target ${stepTargetId} died, stopping sequence`);
+          break;
+        }
+      }
+
+      // mark attacker as having attacked this turn
+      state.attacked[attackerId] = true;
+
+      console.log(`/attack: sequence complete, returning updatedCharacters:`, Object.keys(updatedMap));
+      return res.json({ success: true, attacked: state.attacked, updatedCharacters: Object.values(updatedMap) });
+    }
+
+    // Fallback: single attack + optional counterDamage (legacy)
     // Use client-provided damage if available, otherwise fallback to attacker's strength
     const damage = clientDamage != null ? Number(clientDamage) : attacker.strength || 1;
     const newHealth = Math.max(0, (target.health || 0) - damage);
