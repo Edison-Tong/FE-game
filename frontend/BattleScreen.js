@@ -1010,6 +1010,8 @@ export default function BattleScreen() {
                       battleModalDefenderRef.current = c;
                       setBattleAttackerId(attackerObj ? attackerObj.id : null);
                       setBattleDefenderId(c.id);
+                      // Clear previous battle results so old damage isn't shown
+                      setBattleResults(null);
                       // previously reset parent confirm state here; now handled locally in modal
                       setBattleModalVisible(true);
                       return;
