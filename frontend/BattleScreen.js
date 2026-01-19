@@ -463,6 +463,7 @@ export default function BattleScreen() {
     const [previewResults, setPreviewResults] = useState(null);
     const [previewDefenderHealth, setPreviewDefenderHealth] = useState(null);
     const [computedDamage, setComputedDamage] = useState(0);
+    const [computedCounterDamage, setComputedCounterDamage] = useState(0);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
@@ -676,7 +677,7 @@ export default function BattleScreen() {
                               →
                             </Text>
 
-                            {/* Blue dot 1 (defender attack 1) */}
+                            {/* Blue dot 1 (defender counter) */}
                             <View style={{ alignItems: "center", marginHorizontal: 4 }}>
                               <Text style={{ fontSize: 20 }}>🔵</Text>
                               {resultsToShow && resultsToShow.length > 1 && resultsToShow[1] && (
@@ -937,24 +938,72 @@ export default function BattleScreen() {
                         // roll for block after a successful hit
                         const blockRoll = Math.random() * 100;
                         const isBlocked = blockRoll < blkPct;
+
+                        let attackerEvent;
+                        let defenderEvent = { actor: "defender", type: "miss" };
+
                         if (isBlocked) {
-                          const ev = { actor: "attacker", type: "block" };
-                          setPreviewResults([ev]);
+                          attackerEvent = { actor: "attacker", type: "block" };
                           setPreviewDefenderHealth(Number(defender.health || 0));
                           setComputedDamage(0);
                         } else {
-                          const ev = { actor: "attacker", type: "hit", damage: dmg };
-                          setPreviewResults([ev]);
+                          attackerEvent = { actor: "attacker", type: "hit", damage: dmg };
                           const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
                           setPreviewDefenderHealth(newHealth);
                           setComputedDamage(dmg);
                         }
+
+                        // Compute defender retaliation if defender is still alive
+                        const defenderAlive =
+                          Number(defender.health || 0) > 0 && (isBlocked || Number(defender.health || 0) - dmg > 0);
+                        if (defenderAlive) {
+                          try {
+                            const defWeapon = getWeaponStats(defender) || {};
+                            const defBaseHit = Number(defWeapon["hit%"] || 0);
+                            const defAllyPower = Number(defStats.power || 0);
+                            const enemyProtForDef =
+                              defender.type && String(defender.type).toLowerCase() === "mage"
+                                ? Number(atkStats.protection.magic || 0)
+                                : Number(atkStats.protection.melee || 0);
+                            const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
+
+                            const hitRawDef =
+                              defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
+                            const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
+
+                            const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
+                            const blkPctDef = Math.max(0, Math.floor(blkRawDef));
+
+                            const rollDef = Math.random() * 100;
+                            const isHitDef = rollDef < hitPctDef;
+                            if (isHitDef && dmgDef > 0) {
+                              const blockRollDef = Math.random() * 100;
+                              const isBlockedByAttacker = blockRollDef < blkPctDef;
+                              if (isBlockedByAttacker) {
+                                defenderEvent = { actor: "defender", type: "block" };
+                                setComputedCounterDamage(0);
+                              } else {
+                                defenderEvent = { actor: "defender", type: "hit", damage: dmgDef };
+                                setComputedCounterDamage(dmgDef);
+                              }
+                            } else {
+                              defenderEvent = { actor: "defender", type: "miss" };
+                              setComputedCounterDamage(0);
+                            }
+                          } catch (e) {
+                            defenderEvent = { actor: "defender", type: "miss" };
+                            setComputedCounterDamage(0);
+                          }
+                        }
+
+                        setPreviewResults([attackerEvent, defenderEvent]);
                       } else {
                         // miss (either hit roll failed or dmg == 0)
                         const ev = { actor: "attacker", type: "miss" };
                         setPreviewResults([ev]);
                         setPreviewDefenderHealth(Number(defender.health || 0));
                         setComputedDamage(0);
+                        setComputedCounterDamage(0);
                       }
                     } catch (e) {
                       console.log("preview compute error", e);
