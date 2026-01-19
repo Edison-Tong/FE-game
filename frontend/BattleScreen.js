@@ -138,7 +138,8 @@ export default function BattleScreen() {
     return key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
   };
 
-  const handleAttack = async (targetId, attackerId = null) => {
+  const handleAttack = async (targetId, attackerId = null, options = {}) => {
+    const { skipModalReopen = false } = options;
     const attacker = attackerId || selectedAttackerId;
     if (!attacker) {
       Alert.alert("Select Attacker", "Please select a character to attack with.");
@@ -178,8 +179,8 @@ export default function BattleScreen() {
           setSelectedAttackerId(null);
           setBattleAttackerId(attacker);
           setBattleDefenderId(targetId);
-          // keep modal visible to show results
-          setBattleModalVisible(true);
+          // keep modal visible to show results (unless skipModalReopen)
+          if (!skipModalReopen) setBattleModalVisible(true);
         } else {
           // infer a simple attacker->defender event using health diffs
           const inferred = [];
@@ -214,8 +215,8 @@ export default function BattleScreen() {
           setSelectedAttackerId(null);
           setBattleAttackerId(attacker);
           setBattleDefenderId(targetId);
-          // keep modal visible to show results
-          setBattleModalVisible(true);
+          // keep modal visible to show results (unless skipModalReopen)
+          if (!skipModalReopen) setBattleModalVisible(true);
         }
       } else {
         let msg = "Could not perform attack";
@@ -870,36 +871,25 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
+                    // Capture IDs before closing modal (refs will be cleared)
+                    const attackerId = attacker && attacker.id;
+                    const defenderId = defender && defender.id;
+                    // Close modal first to prevent invisible overlay from blocking touches
+                    if (onCancel) onCancel();
+                    // POST the attack to backend (skip modal reopen)
                     try {
-                      if (onConfirm && attacker && defender) {
-                        const maybePromise = onConfirm(attacker.id, defender.id);
-                        if (maybePromise && typeof maybePromise.then === "function") {
-                          maybePromise
-                            .then(() => {
-                              try {
-                                if (onDone && attacker && attacker.id != null) onDone(attacker.id);
-                              } catch (e) {
-                                console.log("onDone error", e);
-                              }
-                              if (onCancel) onCancel();
-                            })
-                            .catch((err) => {
-                              console.log("onConfirm (Done) error", err);
-                              try {
-                                if (onDone && attacker && attacker.id != null) onDone(attacker.id);
-                              } catch (e) {
-                                console.log("onDone error after confirm failure", e);
-                              }
-                              if (onCancel) onCancel();
-                            });
-                          return;
-                        }
+                      if (onConfirm && attackerId != null && defenderId != null) {
+                        onConfirm(attackerId, defenderId, { skipModalReopen: true });
                       }
-                      if (onDone && attacker && attacker.id != null) onDone(attacker.id);
+                    } catch (e) {
+                      console.log("onConfirm (Done) error", e);
+                    }
+                    // Mark attacker as attacked locally
+                    try {
+                      if (onDone && attackerId != null) onDone(attackerId);
                     } catch (e) {
                       console.log("onDone error", e);
                     }
-                    if (onCancel) onCancel();
                   }}
                 >
                   <Text style={styles.endTurnText}>Done</Text>
@@ -1145,7 +1135,7 @@ export default function BattleScreen() {
                 battleModalAttackerRef.current = null;
                 battleModalDefenderRef.current = null;
               }}
-              onConfirm={(attId, defId) => handleAttack(defId, attId)}
+              onConfirm={(attId, defId, options) => handleAttack(defId, attId, options)}
               isBusy={isPerformingAttack}
               onDone={(attId) => {
                 setLocalAttackedOverrides((prev) => ({ ...(prev || {}), [attId]: true }));
@@ -1167,7 +1157,7 @@ export default function BattleScreen() {
               battleModalAttackerRef.current = null;
               battleModalDefenderRef.current = null;
             }}
-            onConfirm={(attId, defId) => handleAttack(defId, attId)}
+            onConfirm={(attId, defId, options) => handleAttack(defId, attId, options)}
             isBusy={isPerformingAttack}
             onDone={(attId) => {
               setLocalAttackedOverrides((prev) => ({ ...(prev || {}), [attId]: true }));
