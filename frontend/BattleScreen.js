@@ -191,7 +191,9 @@ export default function BattleScreen() {
           if (dmg > 0) {
             inferred.push({ actor: "attacker", type: "hit", damage: dmg });
           } else {
-            inferred.push({ actor: "attacker", type: "miss" });
+            // If we sent a client damage of 0, prefer displaying a block event instead of a miss
+            if (damage === 0) inferred.push({ actor: "attacker", type: "block" });
+            else inferred.push({ actor: "attacker", type: "miss" });
           }
 
           // try to infer a counterattack if server returned an updated attacker
@@ -923,16 +925,30 @@ export default function BattleScreen() {
                       const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
                       const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
 
+                      // compute block % (defender blocking this attack)
+                      const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
+                      const blkPct = Math.max(0, Math.floor(blkRaw));
+
                       // roll for hit/miss
                       const roll = Math.random() * 100;
                       const isHit = roll < hitPct;
 
                       if (isHit && dmg > 0) {
-                        const ev = { actor: "attacker", type: "hit", damage: dmg };
-                        setPreviewResults([ev]);
-                        const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
-                        setPreviewDefenderHealth(newHealth);
-                        setComputedDamage(dmg);
+                        // roll for block after a successful hit
+                        const blockRoll = Math.random() * 100;
+                        const isBlocked = blockRoll < blkPct;
+                        if (isBlocked) {
+                          const ev = { actor: "attacker", type: "block" };
+                          setPreviewResults([ev]);
+                          setPreviewDefenderHealth(Number(defender.health || 0));
+                          setComputedDamage(0);
+                        } else {
+                          const ev = { actor: "attacker", type: "hit", damage: dmg };
+                          setPreviewResults([ev]);
+                          const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
+                          setPreviewDefenderHealth(newHealth);
+                          setComputedDamage(dmg);
+                        }
                       } else {
                         // miss (either hit roll failed or dmg == 0)
                         const ev = { actor: "attacker", type: "miss" };
