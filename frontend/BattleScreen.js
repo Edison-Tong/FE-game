@@ -457,9 +457,12 @@ export default function BattleScreen() {
   const LocalBattleModal = ({ visible, attacker, defender, onCancel, onConfirm, onDone, isBusy }) => {
     // local confirm state so toggling the button doesn't require re-rendering the parent/modal
     const [localConfirmPressed, setLocalConfirmPressed] = useState(false);
+    const [previewResults, setPreviewResults] = useState(null);
+    const [previewDefenderHealth, setPreviewDefenderHealth] = useState(null);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
+    const resultsToShow = previewResults || battleResults;
     return (
       <Modal visible={visible} transparent animationType="fade">
         <View style={modalStyles.overlay}>
@@ -631,10 +634,10 @@ export default function BattleScreen() {
                             {/* Red dot 1 (attacker attack 1) */}
                             <View style={{ alignItems: "center", marginHorizontal: 4 }}>
                               <Text style={{ fontSize: 20 }}>🔴</Text>
-                              {battleResults && battleResults.length > 0 && battleResults[0] && (
+                              {resultsToShow && resultsToShow.length > 0 && resultsToShow[0] && (
                                 <View style={{ marginTop: 4 }}>
                                   {(() => {
-                                    const ev = battleResults[0];
+                                    const ev = resultsToShow[0];
                                     const t = (ev.type || "").toLowerCase();
                                     if (t === "hit") {
                                       const dmg = Number(ev.damage || 0);
@@ -670,10 +673,10 @@ export default function BattleScreen() {
                             {/* Blue dot 1 (defender attack 1) */}
                             <View style={{ alignItems: "center", marginHorizontal: 4 }}>
                               <Text style={{ fontSize: 20 }}>🔵</Text>
-                              {battleResults && battleResults.length > 1 && battleResults[1] && (
+                              {resultsToShow && resultsToShow.length > 1 && resultsToShow[1] && (
                                 <View style={{ marginTop: 4 }}>
                                   {(() => {
-                                    const ev = battleResults[1];
+                                    const ev = resultsToShow[1];
                                     const t = (ev.type || "").toLowerCase();
                                     if (t === "hit") {
                                       const dmg = Number(ev.damage || 0);
@@ -709,10 +712,10 @@ export default function BattleScreen() {
                             {/* Red dot 2 (attacker attack 2) */}
                             <View style={{ alignItems: "center", marginHorizontal: 4 }}>
                               <Text style={{ fontSize: 20 }}>🔴</Text>
-                              {battleResults && battleResults.length > 2 && battleResults[2] && (
+                              {resultsToShow && resultsToShow.length > 2 && resultsToShow[2] && (
                                 <View style={{ marginTop: 4 }}>
                                   {(() => {
-                                    const ev = battleResults[2];
+                                    const ev = resultsToShow[2];
                                     const t = (ev.type || "").toLowerCase();
                                     if (t === "hit") {
                                       const dmg = Number(ev.damage || 0);
@@ -748,10 +751,10 @@ export default function BattleScreen() {
                             {/* Blue dot 2 (defender attack 2) */}
                             <View style={{ alignItems: "center", marginHorizontal: 4 }}>
                               <Text style={{ fontSize: 20 }}>🔵</Text>
-                              {battleResults && battleResults.length > 3 && battleResults[3] && (
+                              {resultsToShow && resultsToShow.length > 3 && resultsToShow[3] && (
                                 <View style={{ marginTop: 4 }}>
                                   {(() => {
-                                    const ev = battleResults[3];
+                                    const ev = resultsToShow[3];
                                     const t = (ev.type || "").toLowerCase();
                                     if (t === "hit") {
                                       const dmg = Number(ev.damage || 0);
@@ -794,7 +797,11 @@ export default function BattleScreen() {
                   {defender.label} • {defender.type} • size: {defender.size}
                 </Text>
                 <View style={{ height: 8 }} />
-                <View style={{ marginBottom: 8 }}>{renderHealthBar(defender)}</View>
+                <View style={{ marginBottom: 8 }}>
+                  {renderHealthBar(
+                    previewDefenderHealth != null ? { ...defender, health: previewDefenderHealth } : defender
+                  )}
+                </View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
@@ -864,6 +871,30 @@ export default function BattleScreen() {
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
                     try {
+                      if (onConfirm && attacker && defender) {
+                        const maybePromise = onConfirm(attacker.id, defender.id);
+                        if (maybePromise && typeof maybePromise.then === "function") {
+                          maybePromise
+                            .then(() => {
+                              try {
+                                if (onDone && attacker && attacker.id != null) onDone(attacker.id);
+                              } catch (e) {
+                                console.log("onDone error", e);
+                              }
+                              if (onCancel) onCancel();
+                            })
+                            .catch((err) => {
+                              console.log("onConfirm (Done) error", err);
+                              try {
+                                if (onDone && attacker && attacker.id != null) onDone(attacker.id);
+                              } catch (e) {
+                                console.log("onDone error after confirm failure", e);
+                              }
+                              if (onCancel) onCancel();
+                            });
+                          return;
+                        }
+                      }
                       if (onDone && attacker && attacker.id != null) onDone(attacker.id);
                     } catch (e) {
                       console.log("onDone error", e);
@@ -877,6 +908,26 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
+                    // compute a simple local damage preview and apply immediately
+                    try {
+                      const atkWeapon = getWeaponStats(attacker) || {};
+                      const defWeapon = getWeaponStats(defender) || {};
+                      const baseHit = Number(atkWeapon["hit%"] || 0);
+                      const allyPower = Number(atkStats.power || 0);
+                      const enemyProt =
+                        attacker.type && String(attacker.type).toLowerCase() === "mage"
+                          ? Number(defStats.protection.magic || 0)
+                          : Number(defStats.protection.melee || 0);
+                      const dmg = Math.max(0, Math.round(allyPower - enemyProt));
+
+                      const ev =
+                        dmg > 0 ? { actor: "attacker", type: "hit", damage: dmg } : { actor: "attacker", type: "miss" };
+                      setPreviewResults([ev]);
+                      const newHealth = Math.max(0, Number(defender.health || 0) - (dmg || 0));
+                      setPreviewDefenderHealth(newHealth);
+                    } catch (e) {
+                      console.log("preview compute error", e);
+                    }
                     setLocalConfirmPressed(true);
                   }}
                 >
