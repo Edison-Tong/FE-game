@@ -11,6 +11,7 @@ export default function BattleScreen() {
   const [isEndingTurn, setIsEndingTurn] = useState(false);
   const [teams, setTeams] = useState([]);
   const [attacked, setAttacked] = useState({});
+  const [localAttackedOverrides, setLocalAttackedOverrides] = useState({});
   const [selectedAttackerId, setSelectedAttackerId] = useState(null);
   const [opponentOrder, setOpponentOrder] = useState({});
   const [initialHealths, setInitialHealths] = useState({});
@@ -283,6 +284,14 @@ export default function BattleScreen() {
     };
   }, [roomId]);
 
+  // Keep local-attacked overrides until the player's turn ends. When the turn leaves the player,
+  // clear the local overrides so server state becomes authoritative for the next turn.
+  useEffect(() => {
+    if (currentTurnUserId && currentTurnUserId !== userId) {
+      setLocalAttackedOverrides({});
+    }
+  }, [currentTurnUserId, userId]);
+
   let turnText = "Waiting...";
   if (currentTurnUserId) turnText = currentTurnUserId === userId ? "It is your turn" : "It is your opponent's turn";
 
@@ -445,7 +454,9 @@ export default function BattleScreen() {
     );
   };
 
-  const LocalBattleModal = ({ visible, attacker, defender, onCancel, onConfirm, isBusy }) => {
+  const LocalBattleModal = ({ visible, attacker, defender, onCancel, onConfirm, onDone, isBusy }) => {
+    // local confirm state so toggling the button doesn't require re-rendering the parent/modal
+    const [localConfirmPressed, setLocalConfirmPressed] = useState(false);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
@@ -848,38 +859,28 @@ export default function BattleScreen() {
                 zIndex: 60,
               }}
             >
-              <TouchableOpacity
-                style={[styles.endTurnButton, { flex: 0.45, backgroundColor: "#444" }]}
-                onPress={() => {
-                  // cancel / close; also clear any pending results
-                  setBattleResults(null);
-                  onCancel();
-                }}
-              >
-                <Text style={styles.endTurnText}>Cancel</Text>
-              </TouchableOpacity>
-              {battleResults && battleResults.length ? (
+              {localConfirmPressed ? (
                 <TouchableOpacity
-                  style={[styles.endTurnButton, { flex: 0.45 }]}
+                  style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
-                    // done: clear results and close modal
-                    setBattleResults(null);
-                    setBattleModalVisible(false);
-                    setBattleAttackerId(null);
-                    setBattleDefenderId(null);
-                    battleModalAttackerRef.current = null;
-                    battleModalDefenderRef.current = null;
+                    try {
+                      if (onDone && attacker && attacker.id != null) onDone(attacker.id);
+                    } catch (e) {
+                      console.log("onDone error", e);
+                    }
+                    if (onCancel) onCancel();
                   }}
                 >
                   <Text style={styles.endTurnText}>Done</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[styles.endTurnButton, { flex: 0.45 }]}
-                  onPress={() => onConfirm(attacker.id, defender.id)}
-                  disabled={isBusy}
+                  style={[styles.endTurnButton, { flex: 1 }]}
+                  onPress={() => {
+                    setLocalConfirmPressed(true);
+                  }}
                 >
-                  {isBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.endTurnText}>Confirm Attack</Text>}
+                  <Text style={styles.endTurnText}>Confirm Attack</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -904,7 +905,8 @@ export default function BattleScreen() {
             const myTeam = teams.find((t) => String(t.user_id) === String(userId));
             if (!myTeam || !myTeam.characters) return <Text style={styles.noChars}>No characters</Text>;
             return myTeam.characters.map((c) => {
-              const hasAttacked = attacked && attacked[c.id];
+              const effectiveAttacked = { ...(attacked || {}), ...(localAttackedOverrides || {}) };
+              const hasAttacked = effectiveAttacked && effectiveAttacked[c.id];
               const isSelected = selectedAttackerId === c.id && currentTurnUserId === userId;
               const canSelect = !hasAttacked && currentTurnUserId === userId;
               return (
@@ -967,6 +969,7 @@ export default function BattleScreen() {
                       battleModalDefenderRef.current = c;
                       setBattleAttackerId(attackerObj ? attackerObj.id : null);
                       setBattleDefenderId(c.id);
+                      // previously reset parent confirm state here; now handled locally in modal
                       setBattleModalVisible(true);
                       return;
                     }
@@ -1093,6 +1096,10 @@ export default function BattleScreen() {
               }}
               onConfirm={(attId, defId) => handleAttack(defId, attId)}
               isBusy={isPerformingAttack}
+              onDone={(attId) => {
+                setLocalAttackedOverrides((prev) => ({ ...(prev || {}), [attId]: true }));
+                setSelectedAttackerId(null);
+              }}
             />
           );
         }
@@ -1111,6 +1118,10 @@ export default function BattleScreen() {
             }}
             onConfirm={(attId, defId) => handleAttack(defId, attId)}
             isBusy={isPerformingAttack}
+            onDone={(attId) => {
+              setLocalAttackedOverrides((prev) => ({ ...(prev || {}), [attId]: true }));
+              setSelectedAttackerId(null);
+            }}
           />
         );
       }, [battleModalVisible, isPerformingAttack])}
