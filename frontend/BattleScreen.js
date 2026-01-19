@@ -660,7 +660,9 @@ export default function BattleScreen() {
                                     } else if (t === "block") {
                                       return <Text style={{ fontSize: 14 }}>🛡️</Text>;
                                     } else if (t === "miss") {
-                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                      return (
+                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
+                                      );
                                     }
                                     return null;
                                   })()}
@@ -699,7 +701,9 @@ export default function BattleScreen() {
                                     } else if (t === "block") {
                                       return <Text style={{ fontSize: 14 }}>🛡️</Text>;
                                     } else if (t === "miss") {
-                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                      return (
+                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
+                                      );
                                     }
                                     return null;
                                   })()}
@@ -738,7 +742,9 @@ export default function BattleScreen() {
                                     } else if (t === "block") {
                                       return <Text style={{ fontSize: 14 }}>🛡️</Text>;
                                     } else if (t === "miss") {
-                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                      return (
+                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
+                                      );
                                     }
                                     return null;
                                   })()}
@@ -777,7 +783,9 @@ export default function BattleScreen() {
                                     } else if (t === "block") {
                                       return <Text style={{ fontSize: 14 }}>🛡️</Text>;
                                     } else if (t === "miss") {
-                                      return <Text style={{ fontSize: 14 }}>😢</Text>;
+                                      return (
+                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
+                                      );
                                     }
                                     return null;
                                   })()}
@@ -911,12 +919,27 @@ export default function BattleScreen() {
                           : Number(defStats.protection.melee || 0);
                       const dmg = Math.max(0, Math.round(allyPower - enemyProt));
 
-                      const ev =
-                        dmg > 0 ? { actor: "attacker", type: "hit", damage: dmg } : { actor: "attacker", type: "miss" };
-                      setPreviewResults([ev]);
-                      const newHealth = Math.max(0, Number(defender.health || 0) - (dmg || 0));
-                      setPreviewDefenderHealth(newHealth);
-                      setComputedDamage(dmg);
+                      // compute hit% using same formula shown in the preview box
+                      const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
+                      const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
+
+                      // roll for hit/miss
+                      const roll = Math.random() * 100;
+                      const isHit = roll < hitPct;
+
+                      if (isHit && dmg > 0) {
+                        const ev = { actor: "attacker", type: "hit", damage: dmg };
+                        setPreviewResults([ev]);
+                        const newHealth = Math.max(0, Number(defender.health || 0) - dmg);
+                        setPreviewDefenderHealth(newHealth);
+                        setComputedDamage(dmg);
+                      } else {
+                        // miss (either hit roll failed or dmg == 0)
+                        const ev = { actor: "attacker", type: "miss" };
+                        setPreviewResults([ev]);
+                        setPreviewDefenderHealth(Number(defender.health || 0));
+                        setComputedDamage(0);
+                      }
                     } catch (e) {
                       console.log("preview compute error", e);
                     }

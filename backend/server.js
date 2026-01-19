@@ -665,7 +665,7 @@ app.post("/attack", async (req, res) => {
     if (target.owner_id === userId) return res.status(400).json({ message: "Cannot attack your own character" });
 
     // Use client-provided damage if available, otherwise fallback to attacker's strength
-    const damage = clientDamage != null ? Number(clientDamage) : (attacker.strength || 1);
+    const damage = clientDamage != null ? Number(clientDamage) : attacker.strength || 1;
     const newHealth = Math.max(0, (target.health || 0) - damage);
     await pool.query("UPDATE characters SET health = $1 WHERE id = $2", [newHealth, targetId]);
 
