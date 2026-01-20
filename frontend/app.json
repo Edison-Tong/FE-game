@@ -2,7 +2,7 @@
   "expo": {
     "name": "colors-game",
     "slug": "colors-game",
-    "version": "3.4.1",
+    "version": "4.0.0",
     "orientation": "portrait",
     "icon": "./assets/splash-icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "buildNumber": "16",
+      "buildNumber": "17",
       "supportsTablet": true,
       "bundleIdentifier": "com.pakitong.colorsgame",
       "infoPlist": {
