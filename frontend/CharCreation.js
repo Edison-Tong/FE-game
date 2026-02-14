@@ -1,5 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from "react-native";
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Animated,
+} from "react-native";
 import { weaponsData } from "./WeaponsData.js";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { BACKEND_URL } from "@env";
@@ -42,7 +51,118 @@ export default function CharCreation() {
     []
   );
 
+  // Team composition limits
+  // maxMages = 2
+  // sizes: 1 -> max 1, 4 -> max 1, 2 -> max 2, 3 -> max 2
+  const [teamChars, setTeamChars] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchChars = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/get-characters?teamId=${teamId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (mounted && data && Array.isArray(data.characters)) setTeamChars(data.characters);
+      } catch (e) {
+        console.log("fetch team chars error", e);
+      }
+    };
+    fetchChars();
+    return () => (mounted = false);
+  }, [teamId]);
+
+  const sizeCounts = useMemo(() => {
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    (teamChars || []).forEach((c) => {
+      const s = Number(c.size || c.sizeValue || 0);
+      if (counts[s] != null) counts[s]++;
+    });
+    return counts;
+  }, [teamChars]);
+
+  const mageCount = useMemo(
+    () => (teamChars || []).filter((c) => String(c.type).toLowerCase() === "mage").length,
+    [teamChars]
+  );
+
+  // Derived dropdown items that include disabled flags based on team composition
+  const computedSizeItems = useMemo(() => {
+    return [
+      { label: sizeCounts[1] >= 1 ? "1 (full)" : "1", value: 1 },
+      { label: sizeCounts[2] >= 2 ? "2 (full)" : "2", value: 2 },
+      { label: sizeCounts[3] >= 2 ? "3 (full)" : "3", value: 3 },
+      { label: sizeCounts[4] >= 1 ? "4 (full)" : "4", value: 4 },
+    ];
+  }, [sizeCounts]);
+
+  const computedTypeItems = useMemo(() => {
+    return [
+      { label: "Melee", value: "melee" },
+      { label: mageCount >= 2 ? "Mage (full)" : "Mage", value: "mage" },
+    ];
+  }, [mageCount]);
+
+  // Temporary top notice (Animated)
+  const [noticeText, setNoticeText] = useState("");
+  const [noticeVisible, setNoticeVisible] = useState(false);
+  const noticeTop = useMemo(() => new Animated.Value(-60), []);
+
+  const showNotice = (text, ms = 3000) => {
+    setNoticeText(text);
+    setNoticeVisible(true);
+    Animated.sequence([
+      Animated.timing(noticeTop, { toValue: 0, duration: 220, useNativeDriver: false }),
+      Animated.delay(ms),
+      Animated.timing(noticeTop, { toValue: -60, duration: 220, useNativeDriver: false }),
+    ]).start(() => {
+      setNoticeVisible(false);
+      setNoticeText("");
+    });
+  };
+
+  const handleSizeSelect = (val) => {
+    if (val == null) return;
+    // find if this size is at limit
+    if (
+      (val === 1 && sizeCounts[1] >= 1) ||
+      (val === 2 && sizeCounts[2] >= 2) ||
+      (val === 3 && sizeCounts[3] >= 2) ||
+      (val === 4 && sizeCounts[4] >= 1)
+    ) {
+      showNotice(`Size ${val} limit reached`);
+      // revert to previous selection
+      setSizeValue(prevSizeRef.current);
+      return;
+    }
+    setSizeValue(val);
+    setInvalidFields((prev) => prev.filter((f) => f !== "sizeValue"));
+  };
+
+  const handleTypeSelect = (val) => {
+    if (val == null) return;
+    if (val === "mage" && mageCount >= 2) {
+      showNotice("Max 2 mages reached");
+      // revert to previous value
+      setTypeValue(prevTypeRef.current);
+      return;
+    }
+    setTypeValue(val);
+    setInvalidFields((prev) => prev.filter((f) => f !== "typeValue"));
+    // reset weapon when type changes
+    setWeaponValue(null);
+  };
+
   const moveAmount = { melee: 5 + bonus, mage: 4 + bonus };
+  // refs to track previous valid selections so we can revert if user selects a full option
+  const prevSizeRef = useRef(sizeValue);
+  const prevTypeRef = useRef(typeValue);
+  useEffect(() => {
+    prevSizeRef.current = sizeValue;
+  }, [sizeValue]);
+  useEffect(() => {
+    prevTypeRef.current = typeValue;
+  }, [typeValue]);
   const [weaponValue, setWeaponValue] = useState(null);
 
   const meleeWeapons = useMemo(
@@ -202,6 +322,17 @@ export default function CharCreation() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View key="char1" style={styles.container}>
+        {noticeVisible && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.limitNotice,
+              { position: "absolute", left: 8, right: 8, top: noticeTop, zIndex: 99999, elevation: 99999 },
+            ]}
+          >
+            <Text style={styles.limitNoticeText}>{noticeText}</Text>
+          </Animated.View>
+        )}
         <View style={styles.charCard}>
           <TextInput
             style={[styles.charName, invalidFields.includes("name") && styles.invalidInput]}
@@ -255,15 +386,14 @@ export default function CharCreation() {
               listItemLabelStyle={{
                 color: "#EBD9B4",
               }}
+              listItemDisabledStyle={{ backgroundColor: "#2E2E2E" }}
+              listItemDisabledLabelStyle={{ color: "#9E9E9E" }}
+              disabledItemLabelStyle={{ color: "#9E9E9E" }}
               value={sizeValue}
-              items={sizeItems}
+              items={computedSizeItems}
               setOpen={setOpenSize}
               setValue={setSizeValue}
-              onChangeValue={(val) => {
-                if (val) {
-                  setInvalidFields((prev) => prev.filter((f) => f !== "sizeValue"));
-                }
-              }}
+              onChangeValue={(val) => handleSizeSelect(val)}
               zIndex={3000}
               zIndexInverse={1000}
             />
@@ -292,15 +422,14 @@ export default function CharCreation() {
               listItemLabelStyle={{
                 color: "#EBD9B4",
               }}
+              listItemDisabledStyle={{ backgroundColor: "#2E2E2E" }}
+              listItemDisabledLabelStyle={{ color: "#9E9E9E" }}
+              disabledItemLabelStyle={{ color: "#9E9E9E" }}
               value={typeValue}
-              items={typeItems}
+              items={computedTypeItems}
               setOpen={setOpenType}
               setValue={setTypeValue}
-              onChangeValue={(val) => {
-                if (val) {
-                  setInvalidFields((prev) => prev.filter((f) => f !== "typeValue"));
-                }
-              }}
+              onChangeValue={(val) => handleTypeSelect(val)}
               zIndex={3000}
               zIndexInverse={1000}
             />
@@ -531,6 +660,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#2B2B2B",
+  },
+  limitNotice: {
+    backgroundColor: "#3A3A3A",
+    padding: 8,
+    margin: 10,
+    borderRadius: 8,
+  },
+  limitNoticeText: {
+    color: "#FFD700",
+    fontSize: 13,
+    fontWeight: "600",
   },
   charCard: {
     backgroundColor: "#3C3C3C",
