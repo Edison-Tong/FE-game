@@ -479,7 +479,7 @@ export default function BattleScreen() {
                       <Text style={modalStyles.statValue}>{allStats.protection.melee}</Text>
                     </View>
                     <View style={modalStyles.statRow}>
-                      <Text style={modalStyles.statLabel}>Protection (Mag)</Text>
+                      <Text style={modalStyl1es.statLabel}>Protection (Mag)</Text>
                       <Text style={modalStyles.statValue}>{allStats.protection.magic}</Text>
                     </View>
                     <View style={modalStyles.statRow}>

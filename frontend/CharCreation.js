@@ -88,18 +88,25 @@ export default function CharCreation() {
 
   // Derived dropdown items that include disabled flags based on team composition
   const computedSizeItems = useMemo(() => {
+    const isFull = (s) =>
+      (s === 1 && sizeCounts[1] >= 1) ||
+      (s === 2 && sizeCounts[2] >= 2) ||
+      (s === 3 && sizeCounts[3] >= 2) ||
+      (s === 4 && sizeCounts[4] >= 1);
+    const fullStyle = { color: "#FF6B6B", textDecorationLine: "line-through" };
     return [
-      { label: sizeCounts[1] >= 1 ? "1 (full)" : "1", value: 1 },
-      { label: sizeCounts[2] >= 2 ? "2 (full)" : "2", value: 2 },
-      { label: sizeCounts[3] >= 2 ? "3 (full)" : "3", value: 3 },
-      { label: sizeCounts[4] >= 1 ? "4 (full)" : "4", value: 4 },
+      { label: "1", value: 1, ...(isFull(1) && { labelStyle: fullStyle }) },
+      { label: "2", value: 2, ...(isFull(2) && { labelStyle: fullStyle }) },
+      { label: "3", value: 3, ...(isFull(3) && { labelStyle: fullStyle }) },
+      { label: "4", value: 4, ...(isFull(4) && { labelStyle: fullStyle }) },
     ];
   }, [sizeCounts]);
 
   const computedTypeItems = useMemo(() => {
+    const mageFull = mageCount >= 2;
     return [
       { label: "Melee", value: "melee" },
-      { label: mageCount >= 2 ? "Mage (full)" : "Mage", value: "mage" },
+      { label: "Mage", value: "mage", ...(mageFull && { labelStyle: { color: "#FF6B6B", textDecorationLine: "line-through" } }) },
     ];
   }, [mageCount]);
 
