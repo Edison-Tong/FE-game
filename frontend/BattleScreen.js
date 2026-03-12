@@ -62,12 +62,34 @@ export default function BattleScreen() {
     const def = (Number(character.defense) || 0) + (Number(weapon.def) || 0);
     const res = (Number(character.resistance) || 0) + (Number(weapon.res) || 0);
 
+    // Size-based modifiers
+    const size = Number(character.size) || 0;
+    let sizePower = 0,
+      sizeAgility = 0,
+      sizeAccuracy = 0,
+      sizeEvasion = 0;
+    if (size === 1) {
+      sizeAgility = 1;
+      sizeEvasion = 1;
+      sizeAccuracy = -2;
+    } else if (size === 2) {
+      sizeEvasion = 2;
+      sizePower = -1;
+    } else if (size === 3) {
+      sizePower = 1;
+      sizeEvasion = -2;
+    } else if (size === 4) {
+      sizeAccuracy = 2;
+      sizePower = 1;
+      sizeAgility = -1;
+    }
+
     return {
-      power,
+      power: power + sizePower,
       protection: prot,
-      agility: spd,
-      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck),
-      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck),
+      agility: spd + sizeAgility,
+      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck) + sizeAccuracy,
+      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck) + sizeEvasion,
       critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
       block: def + res + lck,
     };
@@ -82,10 +104,29 @@ export default function BattleScreen() {
     const def = (Number(character.defense) || 0) + (Number(weapon.def) || 0);
     const res = (Number(character.resistance) || 0) + (Number(weapon.res) || 0);
 
+    // Size-based modifiers
+    const size = Number(character.size) || 0;
+    let sizeAgility = 0,
+      sizeAccuracy = 0,
+      sizeEvasion = 0;
+    if (size === 1) {
+      sizeAgility = 1;
+      sizeEvasion = 1;
+      sizeAccuracy = -2;
+    } else if (size === 2) {
+      sizeEvasion = 2;
+      sizeAccuracy = 0;
+    } else if (size === 3) {
+      sizeEvasion = -2;
+    } else if (size === 4) {
+      sizeAccuracy = 2;
+      sizeAgility = -1;
+    }
+
     return {
-      agility: spd,
-      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck),
-      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck),
+      agility: spd + sizeAgility,
+      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck) + sizeAccuracy,
+      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck) + sizeEvasion,
       critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
       block: def + res + lck,
     };
@@ -479,7 +520,7 @@ export default function BattleScreen() {
                       <Text style={modalStyles.statValue}>{allStats.protection.melee}</Text>
                     </View>
                     <View style={modalStyles.statRow}>
-                      <Text style={modalStyl1es.statLabel}>Protection (Mag)</Text>
+                      <Text style={modalStyles.statLabel}>Protection (Mag)</Text>
                       <Text style={modalStyles.statValue}>{allStats.protection.magic}</Text>
                     </View>
                     <View style={modalStyles.statRow}>
