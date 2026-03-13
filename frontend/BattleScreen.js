@@ -84,14 +84,50 @@ export default function BattleScreen() {
       sizeAgility = -1;
     }
 
+    // Weapon-based multipliers
+    const wepKey = (character.base_weapon || "").toLowerCase();
+    let wepPowerMult = 1,
+      wepAgilityMult = 1,
+      wepAccuracyMult = 1,
+      wepEvasionMult = 1,
+      wepProtMult = 1,
+      wepLuckMult = 1;
+    if (wepKey === "axe" || wepKey === "fire") {
+      wepPowerMult = 1.5;
+    } else if (wepKey === "sword" || wepKey === "water") {
+      wepEvasionMult = 1.5;
+    } else if (wepKey === "dagger" || wepKey === "lightning") {
+      wepAgilityMult = 1.5;
+    } else if (wepKey === "lance" || wepKey === "earth") {
+      wepProtMult = 1.5;
+    } else if (wepKey === "bow" || wepKey === "aether") {
+      wepAccuracyMult = 1.5;
+    } else if (wepKey === "wind") {
+      wepAccuracyMult = 1.25;
+      wepEvasionMult = 1.25;
+    } else if (wepKey === "light") {
+      wepProtMult = 1.25;
+      wepAccuracyMult = 1.25;
+    } else if (wepKey === "dark") {
+      wepPowerMult = 1.25;
+      wepProtMult = 1.25;
+    } else if (wepKey === "gauntlets" || wepKey === "grey" || wepKey === "gray") {
+      wepLuckMult = 1.5;
+    }
+
+    const adjLck = lck * wepLuckMult;
+
     return {
-      power: power + sizePower,
-      protection: prot,
-      agility: spd + sizeAgility,
-      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck) + sizeAccuracy,
-      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck) + sizeEvasion,
-      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
-      block: def + res + lck,
+      power: Math.round((power + sizePower) * wepPowerMult),
+      protection: {
+        melee: Math.round(prot.melee * wepProtMult),
+        magic: Math.round(prot.magic * wepProtMult),
+      },
+      agility: Math.round((spd + sizeAgility) * wepAgilityMult),
+      accuracy: Math.round(Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * adjLck) * wepAccuracyMult + sizeAccuracy),
+      evasion: Math.round(Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * adjLck) * wepEvasionMult + sizeEvasion),
+      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * adjLck),
+      block: def + res + adjLck,
     };
   };
 
@@ -123,12 +159,35 @@ export default function BattleScreen() {
       sizeAgility = -1;
     }
 
+    // Weapon-based multipliers
+    const wepKey = (character.base_weapon || "").toLowerCase();
+    let wepAgilityMult = 1,
+      wepAccuracyMult = 1,
+      wepEvasionMult = 1,
+      wepLuckMult = 1;
+    if (wepKey === "sword" || wepKey === "water") {
+      wepEvasionMult = 1.5;
+    } else if (wepKey === "dagger" || wepKey === "lightning") {
+      wepAgilityMult = 1.5;
+    } else if (wepKey === "bow" || wepKey === "aether") {
+      wepAccuracyMult = 1.5;
+    } else if (wepKey === "wind") {
+      wepAccuracyMult = 1.25;
+      wepEvasionMult = 1.25;
+    } else if (wepKey === "light") {
+      wepAccuracyMult = 1.25;
+    } else if (wepKey === "gauntlets" || wepKey === "grey" || wepKey === "gray") {
+      wepLuckMult = 1.5;
+    }
+
+    const adjLck = lck * wepLuckMult;
+
     return {
-      agility: spd + sizeAgility,
-      accuracy: Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * lck) + sizeAccuracy,
-      evasion: Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * lck) + sizeEvasion,
-      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * lck),
-      block: def + res + lck,
+      agility: Math.round((spd + sizeAgility) * wepAgilityMult),
+      accuracy: Math.round(Math.ceil(0.5 * spd + 0.5 * skl + 1 * knl + 0.5 * adjLck) * wepAccuracyMult + sizeAccuracy),
+      evasion: Math.round(Math.ceil(0.5 * spd + 1 * skl + 0.5 * knl + 0.5 * adjLck) * wepEvasionMult + sizeEvasion),
+      critical: Math.ceil(0.5 * spd + 0.5 * skl + 0.5 * knl + 1 * adjLck),
+      block: def + res + adjLck,
     };
   };
 
