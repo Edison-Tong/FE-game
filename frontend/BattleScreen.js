@@ -1,4 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  Animated,
+} from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { BACKEND_URL } from "@env";
@@ -193,6 +203,26 @@ export default function BattleScreen() {
 
   // height reserved for the confirm/cancel area inside battle modal (ignored when calculating thirds)
   const CONFIRM_AREA_HEIGHT = 80;
+
+  // Tile options for battle modal
+  const TILE_OPTIONS = [
+    { label: "Plain", value: "plain" },
+    { label: "Forest", value: "forest" },
+    { label: "Mountain", value: "mountain" },
+    { label: "Fort", value: "fort" },
+    { label: "River", value: "river" },
+    { label: "Sand", value: "sand" },
+  ];
+
+  // Get special attacks for a character based on their specific chosen abilities
+  const getSpecialAttacks = (character) => {
+    if (!character) return [];
+    const wepKey = (character.base_weapon || "").toLowerCase();
+    const allAbilities = (weaponsData.weaponAbilities && weaponsData.weaponAbilities[wepKey]) || [];
+    const charAbilityNames = [character.weapon_ability1, character.weapon_ability2].filter(Boolean);
+    if (charAbilityNames.length === 0) return allAbilities;
+    return allAbilities.filter((a) => charAbilityNames.includes(a.name));
+  };
 
   const renderHealthBar = (character) => {
     const maxHealth =
@@ -624,9 +654,53 @@ export default function BattleScreen() {
     const [computedDamage, setComputedDamage] = useState(0);
     const [computedCounterDamage, setComputedCounterDamage] = useState(0);
     const [computedSequence, setComputedSequence] = useState([]);
+    const [attackerTile, setAttackerTile] = useState(null);
+    const [defenderTile, setDefenderTile] = useState(null);
+    const [selectedSpecialAttack, setSelectedSpecialAttack] = useState(null);
+    const [middlePage, setMiddlePage] = useState(0);
+    const [middleWidth, setMiddleWidth] = useState(0);
+    const middleScrollRef = useRef(null);
     if (!attacker || !defender) return null;
     const atkStats = computeAllStats(attacker);
     const defStats = computeAllStats(defender);
+
+    // Compute attacker stats WITH special attack bonuses applied
+    const atkStatsWithSpecial = (() => {
+      if (!selectedSpecialAttack) return atkStats;
+      const sa = selectedSpecialAttack;
+      // Build a modified character with the special attack's stat bonuses added
+      const mod = {
+        ...attacker,
+        strength: (Number(attacker.strength) || 0) + (Number(sa.str) || 0),
+        magick: (Number(attacker.magick) || 0) + (Number(sa.mgk) || 0),
+        defense: (Number(attacker.defense) || 0) + (Number(sa.def) || 0),
+        resistance: (Number(attacker.resistance) || 0) + (Number(sa.res) || 0),
+        speed: (Number(attacker.speed) || 0) + (Number(sa.spd) || 0),
+        skill: (Number(attacker.skill) || 0) + (Number(sa.skl) || 0),
+        knowledge: (Number(attacker.knowledge) || 0) + (Number(sa.knl) || 0),
+        luck: (Number(attacker.luck) || 0) + (Number(sa.lck) || 0),
+      };
+      return computeAllStats(mod);
+    })();
+
+    // Helper: renders a stat value with an optional delta indicator when special attack is active
+    const StatWithDelta = ({ base, modified, label }) => {
+      const diff = modified - base;
+      if (diff === 0 || !selectedSpecialAttack) {
+        return <Text style={modalStyles.statValue}>{base}</Text>;
+      }
+      return (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={[modalStyles.statValue, { color: "#888", textDecorationLine: "line-through", fontSize: 12 }]}>
+            {base}
+          </Text>
+          <Text style={{ color: diff > 0 ? "#4CAF50" : "#FF5252", fontWeight: "700", fontSize: 13, marginLeft: 4 }}>
+            {modified}
+          </Text>
+        </View>
+      );
+    };
+
     const resultsToShow = previewResults || battleResults;
     useEffect(() => {
       if (visible) {
@@ -637,6 +711,10 @@ export default function BattleScreen() {
         setComputedDamage(0);
         setComputedCounterDamage(0);
         setComputedSequence([]);
+        setAttackerTile(null);
+        setDefenderTile(null);
+        setSelectedSpecialAttack(null);
+        setMiddlePage(0);
       }
     }, [visible]);
     return (
@@ -668,25 +746,28 @@ export default function BattleScreen() {
                       const atkIsMage = attacker.type && String(attacker.type).toLowerCase() === "mage";
                       const atkPowerLabel = atkIsMage ? "Power (Mag)" : "Power (Mel)";
                       const atkPowerVal = Number(atkStats.power || 0);
-                      // Determine which protection the attacker would use when defending against the defender's attack
+                      const atkPowerMod = Number(atkStatsWithSpecial.power || 0);
                       const defenderIsMage = defender.type && String(defender.type).toLowerCase() === "mage";
                       const attackerDefProtLabel = defenderIsMage ? "Protection (Mag)" : "Protection (Mel)";
                       const attackerDefProtVal = defenderIsMage
                         ? Number(atkStats.protection.magic || 0)
                         : Number(atkStats.protection.melee || 0);
+                      const attackerDefProtMod = defenderIsMage
+                        ? Number(atkStatsWithSpecial.protection.magic || 0)
+                        : Number(atkStatsWithSpecial.protection.melee || 0);
                       return (
                         <>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>{atkPowerLabel}</Text>
-                            <Text style={modalStyles.statValue}>{atkPowerVal}</Text>
+                            <StatWithDelta base={atkPowerVal} modified={atkPowerMod} />
                           </View>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>{attackerDefProtLabel}</Text>
-                            <Text style={modalStyles.statValue}>{attackerDefProtVal}</Text>
+                            <StatWithDelta base={attackerDefProtVal} modified={attackerDefProtMod} />
                           </View>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>Evasion</Text>
-                            <Text style={modalStyles.statValue}>{atkStats.evasion}</Text>
+                            <StatWithDelta base={atkStats.evasion} modified={atkStatsWithSpecial.evasion} />
                           </View>
                         </>
                       );
@@ -696,286 +777,463 @@ export default function BattleScreen() {
                   <View style={{ flex: 1, paddingLeft: 8 }}>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Agility</Text>
-                      <Text style={modalStyles.statValue}>{atkStats.agility}</Text>
+                      <StatWithDelta base={atkStats.agility} modified={atkStatsWithSpecial.agility} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Accuracy</Text>
-                      <Text style={modalStyles.statValue}>{atkStats.accuracy}</Text>
+                      <StatWithDelta base={atkStats.accuracy} modified={atkStatsWithSpecial.accuracy} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Critical</Text>
-                      <Text style={modalStyles.statValue}>{atkStats.critical}</Text>
+                      <StatWithDelta base={atkStats.critical} modified={atkStatsWithSpecial.critical} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Block</Text>
-                      <Text style={modalStyles.statValue}>{atkStats.block}</Text>
+                      <StatWithDelta base={atkStats.block} modified={atkStatsWithSpecial.block} />
                     </View>
                   </View>
                 </View>
               </View>
 
-              {/* Middle third: battle outcome preview (damage, hit, crit, block) */}
-              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 12 }}>
-                {(() => {
-                  // Weapon base hit% (weapon stat key is "hit%")
-                  const atkWeapon = getWeaponStats(attacker) || {};
-                  const defWeapon = getWeaponStats(defender) || {};
-                  const baseHit = Number(atkWeapon["hit%"] || 0);
-                  const allyPower = Number(atkStats.power || 0);
-                  const enemyProt =
-                    attacker.type && String(attacker.type).toLowerCase() === "mage"
-                      ? Number(defStats.protection.magic || 0)
-                      : Number(defStats.protection.melee || 0);
-                  const dmg = Math.max(0, Math.round(allyPower - enemyProt));
+              {/* Middle third: swipeable – page 0 = battle stats, page 1 (swipe left) = tiles & special attack */}
+              <View
+                style={{ flex: 1, overflow: "hidden" }}
+                onLayout={(e) => setMiddleWidth(e.nativeEvent.layout.width)}
+              >
+                {/* Page indicator dots */}
+                <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 4 }}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: middlePage === 0 ? "#C9A66B" : "#555",
+                      marginHorizontal: 3,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: middlePage === 1 ? "#C9A66B" : "#555",
+                      marginHorizontal: 3,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: middlePage === 2 ? "#C9A66B" : "#555",
+                      marginHorizontal: 3,
+                    }}
+                  />
+                </View>
+                <ScrollView
+                  ref={middleScrollRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const page = Math.round(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
+                    setMiddlePage(page);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  {/* PAGE 0: Battle Stats */}
+                  <View style={{ width: middleWidth || 300, paddingHorizontal: 12, justifyContent: "center" }}>
+                    {(() => {
+                      const atkWeapon = getWeaponStats(attacker) || {};
+                      const defWeapon = getWeaponStats(defender) || {};
+                      const baseHit = Number(atkWeapon["hit%"] || 0);
+                      const allyPower = Number(atkStats.power || 0);
+                      const enemyProt =
+                        attacker.type && String(attacker.type).toLowerCase() === "mage"
+                          ? Number(defStats.protection.magic || 0)
+                          : Number(defStats.protection.melee || 0);
+                      const dmg = Math.max(0, Math.round(allyPower - enemyProt));
 
-                  const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
-                  const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
+                      const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
+                      const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
 
-                  const defLuck = (Number(defender.luck) || 0) + Number(defWeapon.lck || 0);
-                  const critRaw = Number(atkStats.critical || 0) - defLuck;
-                  const critPct = Math.max(0, Math.round(critRaw));
+                      const defLuck = (Number(defender.luck) || 0) + Number(defWeapon.lck || 0);
+                      const critRaw = Number(atkStats.critical || 0) - defLuck;
+                      const critPct = Math.max(0, Math.round(critRaw));
 
-                  const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
-                  const blkPct = Math.max(0, Math.floor(blkRaw));
+                      const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
+                      const blkPct = Math.max(0, Math.floor(blkRaw));
 
-                  // Defender -> Attacker (counter) calculations
-                  const defBaseHit = Number(defWeapon["hit%"] || 0);
-                  const defAllyPower = Number(defStats.power || 0);
-                  const enemyProtForDef =
-                    defender.type && String(defender.type).toLowerCase() === "mage"
-                      ? Number(atkStats.protection.magic || 0)
-                      : Number(atkStats.protection.melee || 0);
-                  const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
+                      const defBaseHit = Number(defWeapon["hit%"] || 0);
+                      const defAllyPower = Number(defStats.power || 0);
+                      const enemyProtForDef =
+                        defender.type && String(defender.type).toLowerCase() === "mage"
+                          ? Number(atkStats.protection.magic || 0)
+                          : Number(atkStats.protection.melee || 0);
+                      const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
 
-                  const hitRawDef = defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
-                  const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
+                      const hitRawDef = defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
+                      const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
 
-                  const defCritRaw =
-                    Number(defStats.critical || 0) - ((Number(attacker.luck) || 0) + Number(atkWeapon.lck || 0));
-                  const critPctDef = Math.max(0, Math.round(defCritRaw));
+                      const defCritRaw =
+                        Number(defStats.critical || 0) - ((Number(attacker.luck) || 0) + Number(atkWeapon.lck || 0));
+                      const critPctDef = Math.max(0, Math.round(defCritRaw));
 
-                  const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
-                  const blkPctDef = Math.max(0, Math.floor(blkRawDef));
+                      const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
+                      const blkPctDef = Math.max(0, Math.floor(blkRawDef));
 
-                  return (
-                    <>
-                      <View style={{ flexDirection: "row" }}>
-                        <View
-                          style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginRight: 6 }}
+                      return (
+                        <>
+                          <View style={{ flexDirection: "row" }}>
+                            <View
+                              style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginRight: 6 }}
+                            >
+                              <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
+                                Attacker → Defender
+                              </Text>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>DMG</Text>
+                                <Text style={modalStyles.statValue}>{dmg}</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Hit %</Text>
+                                <Text style={modalStyles.statValue}>{hitPct}%</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Crit %</Text>
+                                <Text style={modalStyles.statValue}>{critPct}%</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Blk %</Text>
+                                <Text style={modalStyles.statValue}>{blkPct}%</Text>
+                              </View>
+                            </View>
+
+                            <View
+                              style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginLeft: 6 }}
+                            >
+                              <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
+                                Defender → Attacker
+                              </Text>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>DMG</Text>
+                                <Text style={modalStyles.statValue}>{dmgDef}</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Hit %</Text>
+                                <Text style={modalStyles.statValue}>{hitPctDef}%</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Crit %</Text>
+                                <Text style={modalStyles.statValue}>{critPctDef}%</Text>
+                              </View>
+                              <View style={modalStyles.statRow}>
+                                <Text style={modalStyles.statLabel}>Blk %</Text>
+                                <Text style={modalStyles.statValue}>{blkPctDef}%</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={{ alignItems: "center", marginTop: 8 }}>
+                            <View style={{ alignItems: "center" }}>
+                              <View
+                                style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "center" }}
+                              >
+                                {/* Red dot 1 */}
+                                <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                                  <Text style={{ fontSize: 20 }}>🔴</Text>
+                                  {resultsToShow && resultsToShow.length > 0 && resultsToShow[0] && (
+                                    <View style={{ marginTop: 4 }}>
+                                      {(() => {
+                                        const ev = resultsToShow[0];
+                                        const t = (ev.type || "").toLowerCase();
+                                        if (t === "hit")
+                                          return (
+                                            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                              {Number(ev.damage || 0)} DMG
+                                            </Text>
+                                          );
+                                        if (t === "crit" || ev.critical)
+                                          return (
+                                            <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                              {Number(ev.damage || 0) + 2 || 2} CRIT
+                                            </Text>
+                                          );
+                                        if (t === "dodge" || t === "evade")
+                                          return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                        if (t === "block") return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                        if (t === "miss")
+                                          return (
+                                            <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>
+                                              MISS
+                                            </Text>
+                                          );
+                                        return null;
+                                      })()}
+                                    </View>
+                                  )}
+                                </View>
+                                <Text
+                                  style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}
+                                >
+                                  →
+                                </Text>
+                                {/* Blue dot 1 */}
+                                <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                                  <Text style={{ fontSize: 20 }}>🔵</Text>
+                                  {resultsToShow && resultsToShow.length > 1 && resultsToShow[1] && (
+                                    <View style={{ marginTop: 4 }}>
+                                      {(() => {
+                                        const ev = resultsToShow[1];
+                                        const t = (ev.type || "").toLowerCase();
+                                        if (t === "hit")
+                                          return (
+                                            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                              {Number(ev.damage || 0)} DMG
+                                            </Text>
+                                          );
+                                        if (t === "crit" || ev.critical)
+                                          return (
+                                            <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                              {Number(ev.damage || 0) + 2 || 2} CRIT
+                                            </Text>
+                                          );
+                                        if (t === "dodge" || t === "evade")
+                                          return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                        if (t === "block") return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                        if (t === "miss")
+                                          return (
+                                            <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>
+                                              MISS
+                                            </Text>
+                                          );
+                                        return null;
+                                      })()}
+                                    </View>
+                                  )}
+                                </View>
+                                <Text
+                                  style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}
+                                >
+                                  →
+                                </Text>
+                                {/* Red dot 2 */}
+                                <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                                  <Text style={{ fontSize: 20 }}>🔴</Text>
+                                  {resultsToShow && resultsToShow.length > 2 && resultsToShow[2] && (
+                                    <View style={{ marginTop: 4 }}>
+                                      {(() => {
+                                        const ev = resultsToShow[2];
+                                        const t = (ev.type || "").toLowerCase();
+                                        if (t === "hit")
+                                          return (
+                                            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                              {Number(ev.damage || 0)} DMG
+                                            </Text>
+                                          );
+                                        if (t === "crit" || ev.critical)
+                                          return (
+                                            <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                              {Number(ev.damage || 0) + 2 || 2} CRIT
+                                            </Text>
+                                          );
+                                        if (t === "dodge" || t === "evade")
+                                          return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                        if (t === "block") return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                        if (t === "miss")
+                                          return (
+                                            <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>
+                                              MISS
+                                            </Text>
+                                          );
+                                        return null;
+                                      })()}
+                                    </View>
+                                  )}
+                                </View>
+                                <Text
+                                  style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}
+                                >
+                                  →
+                                </Text>
+                                {/* Blue dot 2 */}
+                                <View style={{ alignItems: "center", marginHorizontal: 4 }}>
+                                  <Text style={{ fontSize: 20 }}>🔵</Text>
+                                  {resultsToShow && resultsToShow.length > 3 && resultsToShow[3] && (
+                                    <View style={{ marginTop: 4 }}>
+                                      {(() => {
+                                        const ev = resultsToShow[3];
+                                        const t = (ev.type || "").toLowerCase();
+                                        if (t === "hit")
+                                          return (
+                                            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
+                                              {Number(ev.damage || 0)} DMG
+                                            </Text>
+                                          );
+                                        if (t === "crit" || ev.critical)
+                                          return (
+                                            <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
+                                              {Number(ev.damage || 0) + 2 || 2} CRIT
+                                            </Text>
+                                          );
+                                        if (t === "dodge" || t === "evade")
+                                          return <Text style={{ fontSize: 14 }}>💨</Text>;
+                                        if (t === "block") return <Text style={{ fontSize: 14 }}>🛡️</Text>;
+                                        if (t === "miss")
+                                          return (
+                                            <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>
+                                              MISS
+                                            </Text>
+                                          );
+                                        return null;
+                                      })()}
+                                    </View>
+                                  )}
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+
+                  {/* PAGE 1: Tile Selection & Special Attack */}
+                  <View style={{ width: middleWidth || 300, paddingHorizontal: 12, justifyContent: "center" }}>
+                    {/* Attacker Tile */}
+                    <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6, fontSize: 13 }}>
+                      🔴 {attacker.name}'s Tile
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 10 }}>
+                      {TILE_OPTIONS.map((opt) => (
+                        <TouchableOpacity
+                          key={opt.value}
+                          onPress={() => setAttackerTile(opt.value)}
+                          style={{
+                            backgroundColor: attackerTile === opt.value ? "#C9A66B" : "#333",
+                            paddingVertical: 5,
+                            paddingHorizontal: 10,
+                            borderRadius: 6,
+                            marginRight: 6,
+                            marginBottom: 6,
+                            borderWidth: 1,
+                            borderColor: attackerTile === opt.value ? "#C9A66B" : "#555",
+                          }}
                         >
-                          <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
-                            Attacker → Defender
+                          <Text
+                            style={{
+                              color: attackerTile === opt.value ? "#1a1a2e" : "#ccc",
+                              fontSize: 12,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {opt.label}
                           </Text>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>DMG</Text>
-                            <Text style={modalStyles.statValue}>{dmg}</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Hit %</Text>
-                            <Text style={modalStyles.statValue}>{hitPct}%</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Crit %</Text>
-                            <Text style={modalStyles.statValue}>{critPct}%</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Blk %</Text>
-                            <Text style={modalStyles.statValue}>{blkPct}%</Text>
-                          </View>
-                        </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
 
-                        <View style={{ flex: 1, backgroundColor: "#222", padding: 12, borderRadius: 8, marginLeft: 6 }}>
-                          <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 8 }}>
-                            Defender → Attacker
+                    {/* Defender Tile */}
+                    <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6, fontSize: 13 }}>
+                      🔵 {defender.name}'s Tile
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 10 }}>
+                      {TILE_OPTIONS.map((opt) => (
+                        <TouchableOpacity
+                          key={opt.value}
+                          onPress={() => setDefenderTile(opt.value)}
+                          style={{
+                            backgroundColor: defenderTile === opt.value ? "#C9A66B" : "#333",
+                            paddingVertical: 5,
+                            paddingHorizontal: 10,
+                            borderRadius: 6,
+                            marginRight: 6,
+                            marginBottom: 6,
+                            borderWidth: 1,
+                            borderColor: defenderTile === opt.value ? "#C9A66B" : "#555",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: defenderTile === opt.value ? "#1a1a2e" : "#ccc",
+                              fontSize: 12,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {opt.label}
                           </Text>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>DMG</Text>
-                            <Text style={modalStyles.statValue}>{dmgDef}</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Hit %</Text>
-                            <Text style={modalStyles.statValue}>{hitPctDef}%</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Crit %</Text>
-                            <Text style={modalStyles.statValue}>{critPctDef}%</Text>
-                          </View>
-                          <View style={modalStyles.statRow}>
-                            <Text style={modalStyles.statLabel}>Blk %</Text>
-                            <Text style={modalStyles.statValue}>{blkPctDef}%</Text>
-                          </View>
-                        </View>
-                      </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
 
-                      <View style={{ alignItems: "center", marginTop: 8 }}>
-                        {/* Attack sequence with results below each dot */}
-                        <View style={{ alignItems: "center" }}>
-                          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "center" }}>
-                            {/* Red dot 1 (attacker attack 1) */}
-                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
-                              <Text style={{ fontSize: 20 }}>🔴</Text>
-                              {resultsToShow && resultsToShow.length > 0 && resultsToShow[0] && (
-                                <View style={{ marginTop: 4 }}>
-                                  {(() => {
-                                    const ev = resultsToShow[0];
-                                    const t = (ev.type || "").toLowerCase();
-                                    if (t === "hit") {
-                                      const dmg = Number(ev.damage || 0);
-                                      return (
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
-                                          {dmg} DMG
-                                        </Text>
-                                      );
-                                    } else if (t === "crit" || ev.critical) {
-                                      const dmg = Number(ev.damage || 0) + 2 || 2;
-                                      return (
-                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
-                                          {dmg} CRIT
-                                        </Text>
-                                      );
-                                    } else if (t === "dodge" || t === "evade") {
-                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
-                                    } else if (t === "block") {
-                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
-                                    } else if (t === "miss") {
-                                      return (
-                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </View>
-                              )}
-                            </View>
-
-                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
-                              →
+                  {/* PAGE 2: Special Attacks */}
+                  <View style={{ width: middleWidth || 300, paddingHorizontal: 12, justifyContent: "center" }}>
+                    <Text
+                      style={{
+                        color: "#C9A66B",
+                        fontWeight: "700",
+                        marginBottom: 10,
+                        fontSize: 14,
+                        textAlign: "center",
+                      }}
+                    >
+                      ⚔️ Special Attacks
+                    </Text>
+                    <ScrollView style={{ flex: 1 }} nestedScrollEnabled>
+                      <TouchableOpacity
+                        onPress={() => setSelectedSpecialAttack(null)}
+                        style={{
+                          backgroundColor: !selectedSpecialAttack ? "#C9A66B" : "#333",
+                          paddingVertical: 8,
+                          paddingHorizontal: 12,
+                          borderRadius: 6,
+                          marginBottom: 6,
+                          borderWidth: 1,
+                          borderColor: !selectedSpecialAttack ? "#C9A66B" : "#555",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: !selectedSpecialAttack ? "#1a1a2e" : "#ccc",
+                            fontSize: 13,
+                            fontWeight: "600",
+                          }}
+                        >
+                          None (Normal Attack)
+                        </Text>
+                      </TouchableOpacity>
+                      {getSpecialAttacks(attacker).map((atk, idx) => {
+                        const isSelected = selectedSpecialAttack && selectedSpecialAttack.name === atk.name;
+                        return (
+                          <TouchableOpacity
+                            key={idx}
+                            onPress={() => setSelectedSpecialAttack(atk)}
+                            style={{
+                              backgroundColor: isSelected ? "#C9A66B" : "#333",
+                              paddingVertical: 8,
+                              paddingHorizontal: 12,
+                              borderRadius: 6,
+                              marginBottom: 6,
+                              borderWidth: 1,
+                              borderColor: isSelected ? "#C9A66B" : "#555",
+                            }}
+                          >
+                            <Text style={{ color: isSelected ? "#1a1a2e" : "#ccc", fontSize: 13, fontWeight: "600" }}>
+                              {atk.name}
                             </Text>
-
-                            {/* Blue dot 1 (defender counter) */}
-                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
-                              <Text style={{ fontSize: 20 }}>🔵</Text>
-                              {resultsToShow && resultsToShow.length > 1 && resultsToShow[1] && (
-                                <View style={{ marginTop: 4 }}>
-                                  {(() => {
-                                    const ev = resultsToShow[1];
-                                    const t = (ev.type || "").toLowerCase();
-                                    if (t === "hit") {
-                                      const dmg = Number(ev.damage || 0);
-                                      return (
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
-                                          {dmg} DMG
-                                        </Text>
-                                      );
-                                    } else if (t === "crit" || ev.critical) {
-                                      const dmg = Number(ev.damage || 0) + 2 || 2;
-                                      return (
-                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
-                                          {dmg} CRIT
-                                        </Text>
-                                      );
-                                    } else if (t === "dodge" || t === "evade") {
-                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
-                                    } else if (t === "block") {
-                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
-                                    } else if (t === "miss") {
-                                      return (
-                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </View>
-                              )}
-                            </View>
-
-                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
-                              →
+                            <Text
+                              style={{ color: isSelected ? "#333" : "#888", fontSize: 11, marginTop: 2 }}
+                              numberOfLines={2}
+                            >
+                              {atk.effect}
                             </Text>
-
-                            {/* Red dot 2 (attacker attack 2) */}
-                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
-                              <Text style={{ fontSize: 20 }}>🔴</Text>
-                              {resultsToShow && resultsToShow.length > 2 && resultsToShow[2] && (
-                                <View style={{ marginTop: 4 }}>
-                                  {(() => {
-                                    const ev = resultsToShow[2];
-                                    const t = (ev.type || "").toLowerCase();
-                                    if (t === "hit") {
-                                      const dmg = Number(ev.damage || 0);
-                                      return (
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
-                                          {dmg} DMG
-                                        </Text>
-                                      );
-                                    } else if (t === "crit" || ev.critical) {
-                                      const dmg = Number(ev.damage || 0) + 2 || 2;
-                                      return (
-                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
-                                          {dmg} CRIT
-                                        </Text>
-                                      );
-                                    } else if (t === "dodge" || t === "evade") {
-                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
-                                    } else if (t === "block") {
-                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
-                                    } else if (t === "miss") {
-                                      return (
-                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </View>
-                              )}
-                            </View>
-
-                            <Text style={{ color: "#C9A66B", fontWeight: "700", marginHorizontal: 6, marginTop: 2 }}>
-                              →
-                            </Text>
-
-                            {/* Blue dot 2 (defender attack 2) */}
-                            <View style={{ alignItems: "center", marginHorizontal: 4 }}>
-                              <Text style={{ fontSize: 20 }}>🔵</Text>
-                              {resultsToShow && resultsToShow.length > 3 && resultsToShow[3] && (
-                                <View style={{ marginTop: 4 }}>
-                                  {(() => {
-                                    const ev = resultsToShow[3];
-                                    const t = (ev.type || "").toLowerCase();
-                                    if (t === "hit") {
-                                      const dmg = Number(ev.damage || 0);
-                                      return (
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
-                                          {dmg} DMG
-                                        </Text>
-                                      );
-                                    } else if (t === "crit" || ev.critical) {
-                                      const dmg = Number(ev.damage || 0) + 2 || 2;
-                                      return (
-                                        <Text style={{ color: "#ff4444", fontWeight: "700", fontSize: 12 }}>
-                                          {dmg} CRIT
-                                        </Text>
-                                      );
-                                    } else if (t === "dodge" || t === "evade") {
-                                      return <Text style={{ fontSize: 14 }}>💨</Text>;
-                                    } else if (t === "block") {
-                                      return <Text style={{ fontSize: 14 }}>🛡️</Text>;
-                                    } else if (t === "miss") {
-                                      return (
-                                        <Text style={{ color: "#FFCCCC", fontWeight: "700", fontSize: 12 }}>MISS</Text>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                    </>
-                  );
-                })()}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </ScrollView>
               </View>
 
               {/* Bottom third: defender */}
@@ -1097,6 +1355,13 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
+                    if (!attackerTile || !defenderTile) {
+                      Alert.alert(
+                        "Tiles Required",
+                        "Please swipe to the Tiles page and select a tile for both the attacker and defender before confirming."
+                      );
+                      return;
+                    }
                     try {
                       const seq = [];
                       const previewEvents = [];
