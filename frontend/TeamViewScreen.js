@@ -1,7 +1,7 @@
 import React from "react";
 import PagerView from "react-native-pager-view";
 import { FontAwesome } from "@expo/vector-icons";
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useEffect, useState, useMemo } from "react";
 import { BACKEND_URL } from "@env";
@@ -111,6 +111,16 @@ export default function TeamViewScreen() {
             <Text>Attacks</Text>
           </View>
         </TouchableOpacity>
+        {character.type === "mage" && (
+          <TouchableOpacity
+            style={[styles.specialStatsBtn, statsView === "special" ? styles.pressed : styles.notPressed]}
+            onPress={() => setStatsView("special")}
+          >
+            <View>
+              <Text>Special</Text>
+            </View>
+          </TouchableOpacity>
+        )}
         {statsView === "base" ? (
           <View style={styles.statsWrapper}>
             <View style={styles.baseStatsContainer}>
@@ -133,50 +143,135 @@ export default function TeamViewScreen() {
               ))}
             </View>
           </View>
-        ) : (
-          <View style={styles.attackWrapper}>
-            <View style={styles.attackContainer}>
-              {Object.entries(
-                weaponsData.weaponAbilities[character.base_weapon].find(
-                  (ability) => ability.name === character.weapon_ability1
-                )
-              ).map(([label, value]) => {
-                if (label === "name")
-                  return (
-                    <View key={label}>
-                      <Text style={styles.abilityTitle}>{value}</Text>
-                    </View>
-                  );
+        ) : statsView === "atk" ? (
+          <View style={styles.cardsContainer}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 6 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {[character.weapon_ability1, character.weapon_ability2].filter(Boolean).map((abilityName) => {
+                const ability = weaponsData.weaponAbilities[character.base_weapon]?.find((a) => a.name === abilityName);
+                if (!ability) return null;
                 return (
-                  <View key={label} style={styles.abilityStatRow}>
-                    <Text style={styles.abilityStatsValue}>{label}</Text>
-                    <Text style={styles.abilityStatsValue}>{value}</Text>
+                  <View
+                    key={ability.name}
+                    style={{
+                      backgroundColor: "#4A6741",
+                      borderColor: "#7CFC00",
+                      borderWidth: 2,
+                      borderRadius: 10,
+                      padding: 14,
+                      marginHorizontal: 6,
+                      marginVertical: 5,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text
+                        style={{
+                          color: "#7CFC00",
+                          fontSize: 17,
+                          fontWeight: "bold",
+                          flex: 1,
+                        }}
+                      >
+                        {ability.name}
+                      </Text>
+                      <Text style={{ color: "#D4B36C", fontSize: 13, fontWeight: "bold" }}>{ability.type}</Text>
+                    </View>
+                    <Text style={{ color: "#C5E6C0", fontSize: 13, marginTop: 4 }}>{ability.effect}</Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 6, gap: 12 }}>
+                      {ability["hit%"] != null && (
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Hit: {ability["hit%"]}%</Text>
+                      )}
+                      {ability.str != null && (
+                        <Text style={{ color: ability.str > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 12 }}>
+                          Str: {ability.str > 0 ? "+" : ""}
+                          {ability.str}
+                        </Text>
+                      )}
+                      {ability.skl != null && (
+                        <Text style={{ color: ability.skl > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 12 }}>
+                          Skl: {ability.skl > 0 ? "+" : ""}
+                          {ability.skl}
+                        </Text>
+                      )}
+                      {ability.spd != null && (
+                        <Text style={{ color: ability.spd > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 12 }}>
+                          Spd: {ability.spd > 0 ? "+" : ""}
+                          {ability.spd}
+                        </Text>
+                      )}
+                      {ability.lck != null && (
+                        <Text style={{ color: ability.lck > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 12 }}>
+                          Lck: {ability.lck > 0 ? "+" : ""}
+                          {ability.lck}
+                        </Text>
+                      )}
+                      {ability.range != null && (
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Range: {ability.range}</Text>
+                      )}
+                      {ability.uses != null && (
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Uses: {ability.uses}</Text>
+                      )}
+                    </View>
                   </View>
                 );
               })}
-            </View>
-            <View style={styles.attackContainer}>
-              {Object.entries(
-                weaponsData.weaponAbilities[character.base_weapon].find(
-                  (ability) => ability.name === character.weapon_ability2
-                )
-              ).map(([label, value]) => {
-                if (label === "name")
-                  return (
-                    <View key={label}>
-                      <Text style={styles.abilityTitle}>{value}</Text>
-                    </View>
-                  );
-                return (
-                  <View key={label} style={styles.abilityStatRow}>
-                    <Text style={styles.abilityStatsValue}>{label}</Text>
-                    <Text style={styles.abilityStatsValue}>{value}</Text>
-                  </View>
-                );
-              })}
-            </View>
+            </ScrollView>
           </View>
-        )}
+        ) : statsView === "special" ? (
+          <View style={styles.cardsContainer}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 6 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {[character.special_move_1, character.special_move_2, character.special_move_3]
+                .filter(Boolean)
+                .map((moveName) => {
+                  const move = weaponsData.mageSpecialAbilities?.[character.base_weapon]?.find(
+                    (m) => m.name === moveName
+                  );
+                  if (!move) return null;
+                  return (
+                    <View
+                      key={move.name}
+                      style={{
+                        backgroundColor: "#4A6741",
+                        borderColor: "#7CFC00",
+                        borderWidth: 2,
+                        borderRadius: 10,
+                        padding: 14,
+                        marginHorizontal: 6,
+                        marginVertical: 5,
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                        <Text
+                          style={{
+                            color: "#7CFC00",
+                            fontSize: 17,
+                            fontWeight: "bold",
+                            flex: 1,
+                          }}
+                        >
+                          {move.name}
+                        </Text>
+                        <Text style={{ color: "#D4B36C", fontSize: 13, fontWeight: "bold" }}>{move.effect}</Text>
+                      </View>
+                      <Text style={{ color: "#C5E6C0", fontSize: 13, marginTop: 4 }}>{move.description}</Text>
+                      <View style={{ flexDirection: "row", marginTop: 6, gap: 14 }}>
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Range: {move.range}</Text>
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Turns: {move.turns}</Text>
+                        <Text style={{ color: "#BBB", fontSize: 12 }}>Uses: {move.uses}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+            </ScrollView>
+          </View>
+        ) : null}
       </View>
     </View>
   ));
@@ -323,6 +418,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 5,
   },
+  specialStatsBtn: {
+    position: "absolute",
+    backgroundColor: "#C9A66B",
+    height: "5%",
+    width: "30%",
+    top: "32%",
+    left: "63%",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 5,
+  },
   notPressed: {
     backgroundColor: "#D4B36C",
     borderTopWidth: 2,
@@ -390,45 +496,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#F5F5F5",
   },
-  abilityTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-    color: "#C9A66B",
-  },
-  attackWrapper: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  cardsContainer: {
+    position: "absolute",
+    top: "40%",
+    bottom: "3%",
+    left: 0,
+    right: 0,
     paddingHorizontal: 10,
-    top: "15%",
-  },
-  attackContainer: {
-    backgroundColor: "#5A4C3C",
-    borderRadius: 10,
-    padding: 12,
-    margin: 8,
-    width: "48%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  abilityStatRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginVertical: 2,
-    flexWrap: "wrap",
-  },
-  abilityStatsValue: {
-    fontSize: 16,
-    flexShrink: 1,
-    textAlign: "right",
-    maxWidth: "60%",
-    marginBottom: 4,
-    color: "#F5F5F5",
   },
   weaponStatsContainer: {
     backgroundColor: "#5A4C3C",

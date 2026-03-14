@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
+  ScrollView,
 } from "react-native";
 import { weaponsData } from "./WeaponsData.js";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -24,8 +25,8 @@ export default function CharCreation() {
   const [invalidFields, setInvalidFields] = useState([]);
 
   const [openWeapon, setOpenWeapon] = useState(false);
-  const [openAbility1, setOpenAbility1] = useState(false);
-  const [openAbility2, setOpenAbility2] = useState(false);
+  const [selectedAttacks, setSelectedAttacks] = useState([]);
+  const [selectedSpecials, setSelectedSpecials] = useState([]);
   const [name, setName] = useState(null);
   const [label, setLabel] = useState(null);
   const [sizeValue, setSizeValue] = useState(null);
@@ -106,7 +107,11 @@ export default function CharCreation() {
     const mageFull = mageCount >= 2;
     return [
       { label: "Melee", value: "melee" },
-      { label: "Mage", value: "mage", ...(mageFull && { labelStyle: { color: "#FF6B6B", textDecorationLine: "line-through" } }) },
+      {
+        label: "Mage",
+        value: "mage",
+        ...(mageFull && { labelStyle: { color: "#FF6B6B", textDecorationLine: "line-through" } }),
+      },
     ];
   }, [mageCount]);
 
@@ -202,29 +207,37 @@ export default function CharCreation() {
   };
   const [statsTotal, setStatsTotal] = useState(36);
 
-  const attackStats = ["hit%", "Str", "Def", "Mgk", "Res", "Spd", "Skl", "Knl", "Lck", "range"];
   const [baseStats, setBaseStats] = useState(initialBaseStats);
-  const [ability1, setAbility1] = useState(null);
-  const [ability2, setAbility2] = useState(null);
 
-  const currentAbilities = weaponsData.weaponAbilities[weaponValue] || [];
+  const abilityList = useMemo(() => {
+    return weaponsData.weaponAbilities[weaponValue] || [];
+  }, [weaponValue, weaponsData]);
 
-  const abilityOptions = useMemo(() => {
-    const abilities = weaponsData.weaponAbilities[weaponValue] || [];
-    return abilities.map((a) => ({
-      label: a.name,
-      value: a.name,
-      disabled: a.name === ability1 || a.name === ability2,
-    }));
-  }, [weaponValue, ability1, ability2, weaponsData]);
+  const toggleAbility = (abilityName) => {
+    setSelectedAttacks((prev) => {
+      if (prev.includes(abilityName)) {
+        return prev.filter((n) => n !== abilityName);
+      }
+      if (prev.length >= 2) return prev;
+      return [...prev, abilityName];
+    });
+    setInvalidFields((prev) => prev.filter((f) => f !== "abilities"));
+  };
 
-  const [selectedAbilities, setSelectedAbilities] = useState(
-    {
-      ability1: null,
-      ability2: null,
-    },
-    weaponValue
-  );
+  const specialMovesList = useMemo(() => {
+    return (weaponsData.mageSpecialAbilities && weaponsData.mageSpecialAbilities[weaponValue]) || [];
+  }, [weaponValue, weaponsData]);
+
+  const toggleSpecialMove = (moveName) => {
+    setSelectedSpecials((prev) => {
+      if (prev.includes(moveName)) {
+        return prev.filter((n) => n !== moveName);
+      }
+      if (prev.length >= 3) return prev;
+      return [...prev, moveName];
+    });
+    setInvalidFields((prev) => prev.filter((f) => f !== "specials"));
+  };
 
   useEffect(() => {
     if (!weaponValue) {
@@ -237,6 +250,8 @@ export default function CharCreation() {
 
   useEffect(() => {
     setWeaponValue(null);
+    setSelectedSpecials([]);
+    setSelectedAttacks([]);
   }, [typeValue]);
 
   const handleChange = (key, delta) => {
@@ -247,27 +262,6 @@ export default function CharCreation() {
     setStatsTotal((prev) => prev + delta);
   };
 
-  useEffect(() => {
-    const updatedAbilities = {};
-
-    if (ability1 && weaponsData.weaponAbilities[weaponValue]) {
-      const found1 = weaponsData.weaponAbilities[weaponValue].find((ability) => ability.name === ability1);
-      updatedAbilities.ability1 = found1 || null;
-    }
-
-    if (ability2 && weaponsData.weaponAbilities[weaponValue]) {
-      const found2 = weaponsData.weaponAbilities[weaponValue].find((ability) => ability.name === ability2);
-      updatedAbilities.ability2 = found2 || null;
-    }
-
-    if (Object.keys(updatedAbilities).length > 0) {
-      setSelectedAbilities((prev) => ({
-        ...prev,
-        ...updatedAbilities,
-      }));
-    }
-  }, [ability1, ability2, weaponValue]);
-
   const handleSubmit = async () => {
     const missing = [];
 
@@ -276,8 +270,10 @@ export default function CharCreation() {
     if (!typeValue) missing.push("typeValue");
     if (!sizeValue) missing.push("sizeValue");
     if (!weaponValue) missing.push("weaponValue");
-    if (!ability1) missing.push("ability1");
-    if (!ability2) missing.push("ability2");
+    if (selectedAttacks.length < 2) missing.push("abilities");
+    if (typeValue === "mage" && selectedSpecials.length < 3) {
+      missing.push("specials");
+    }
 
     if (missing.length > 0) {
       setInvalidFields(missing);
@@ -297,7 +293,8 @@ export default function CharCreation() {
           moveAmount,
           weaponValue,
           baseStats,
-          abilities: [ability1, ability2],
+          abilities: selectedAttacks,
+          specialMoves: typeValue === "mage" ? selectedSpecials : [],
           teamId,
         }),
       });
@@ -400,6 +397,10 @@ export default function CharCreation() {
               items={computedSizeItems}
               setOpen={setOpenSize}
               setValue={setSizeValue}
+              onOpen={() => {
+                setOpenType(false);
+                setOpenWeapon(false);
+              }}
               onChangeValue={(val) => handleSizeSelect(val)}
               zIndex={3000}
               zIndexInverse={1000}
@@ -436,6 +437,10 @@ export default function CharCreation() {
               items={computedTypeItems}
               setOpen={setOpenType}
               setValue={setTypeValue}
+              onOpen={() => {
+                setOpenSize(false);
+                setOpenWeapon(false);
+              }}
               onChangeValue={(val) => handleTypeSelect(val)}
               zIndex={3000}
               zIndexInverse={1000}
@@ -534,9 +539,15 @@ export default function CharCreation() {
                     items={typeValue === "mage" ? magicWeapons : meleeWeapons}
                     setOpen={setOpenWeapon}
                     setValue={setWeaponValue}
+                    onOpen={() => {
+                      setOpenSize(false);
+                      setOpenType(false);
+                    }}
                     onChangeValue={(val) => {
                       if (val) {
                         setInvalidFields((prev) => prev.filter((f) => f !== "weaponValue"));
+                        setSelectedAttacks([]);
+                        setSelectedSpecials([]);
                       }
                     }}
                     zIndex={3000}
@@ -557,118 +568,160 @@ export default function CharCreation() {
               </View>
             </View>
           ) : statsView === "atk" ? (
-            <View style={styles.attackWrapper}>
-              <View style={[styles.attackContainer, invalidFields.includes("ability1") && styles.invalidInput]}>
-                <DropDownPicker
-                  open={openAbility1}
-                  placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 1"}
-                  style={{
-                    backgroundColor: "#D4B36C",
-                    borderColor: "#8C6A41",
-                  }}
-                  dropDownContainerStyle={{
-                    backgroundColor: "#3B2A1A",
-                    borderColor: "#8C6A41",
-                  }}
-                  placeholderStyle={{
-                    color: "black",
-                  }}
-                  labelStyle={{
-                    color: "#EBD9B4",
-                  }}
-                  listItemContainerStyle={{
-                    backgroundColor: "#3B2A1A",
-                  }}
-                  listItemLabelStyle={{
-                    color: "#EBD9B4",
-                  }}
-                  value={ability1}
-                  items={abilityOptions}
-                  setOpen={setOpenAbility1}
-                  setValue={setAbility1}
-                  onChangeValue={(val) => {
-                    if (val) {
-                      setInvalidFields((prev) => prev.filter((f) => f !== "ability1"));
-                    }
-                  }}
-                  zIndex={3000}
-                  zIndexInverse={1000}
-                  disabled={weaponValue === null}
-                  disabledItemLabelStyle={{ color: "gray" }}
-                />
-                {ability1 === null || !selectedAbilities.ability1 ? (
-                  <Text style={styles.attackTitle}>No ability selected</Text>
-                ) : (
-                  attackStats.map((stat, index) => {
-                    const value = selectedAbilities.ability1[stat.toLowerCase()] ?? 0;
+            <View style={styles.attacksContainer}>
+              {weaponValue === null ? (
+                <Text style={{ color: "#999", fontSize: 14, textAlign: "center", marginTop: 20 }}>
+                  Pick a weapon first
+                </Text>
+              ) : (
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ paddingBottom: 6 }}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {abilityList.map((ability) => {
+                    const isSelected = selectedAttacks.includes(ability.name);
+                    const isFull = selectedAttacks.length >= 2 && !isSelected;
                     return (
-                      <View key={index} style={styles.statRow}>
-                        <Text style={styles.statsLabel}>{stat}:</Text>
-                        <Text style={styles.statsValue}>{value}</Text>
-                      </View>
+                      <TouchableOpacity
+                        key={ability.name}
+                        activeOpacity={isFull ? 1 : 0.7}
+                        onPress={() => !isFull && toggleAbility(ability.name)}
+                        style={{
+                          backgroundColor: isSelected ? "#4A6741" : "#3B2A1A",
+                          borderColor: isSelected ? "#7CFC00" : isFull ? "#555" : "#8C6A41",
+                          borderWidth: isSelected ? 2 : 1,
+                          borderRadius: 10,
+                          padding: 10,
+                          marginHorizontal: 6,
+                          marginVertical: 3,
+                          opacity: isFull ? 0.45 : 1,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text
+                            style={{
+                              color: isSelected ? "#7CFC00" : "#EBD9B4",
+                              fontSize: 15,
+                              fontWeight: "bold",
+                              flex: 1,
+                            }}
+                          >
+                            {isSelected ? "✓ " : ""}
+                            {ability.name}
+                          </Text>
+                          <Text style={{ color: "#D4B36C", fontSize: 12, fontWeight: "bold" }}>{ability.type}</Text>
+                        </View>
+                        <Text style={{ color: isSelected ? "#C5E6C0" : "#A89272", fontSize: 11, marginTop: 3 }}>
+                          {ability.effect}
+                        </Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 5, gap: 10 }}>
+                          {ability["hit%"] != null && (
+                            <Text style={{ color: "#999", fontSize: 10 }}>Hit: {ability["hit%"]}%</Text>
+                          )}
+                          {ability.str != null && (
+                            <Text style={{ color: ability.str > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 10 }}>
+                              Str: {ability.str > 0 ? "+" : ""}
+                              {ability.str}
+                            </Text>
+                          )}
+                          {ability.skl != null && (
+                            <Text style={{ color: ability.skl > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 10 }}>
+                              Skl: {ability.skl > 0 ? "+" : ""}
+                              {ability.skl}
+                            </Text>
+                          )}
+                          {ability.spd != null && (
+                            <Text style={{ color: ability.spd > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 10 }}>
+                              Spd: {ability.spd > 0 ? "+" : ""}
+                              {ability.spd}
+                            </Text>
+                          )}
+                          {ability.lck != null && (
+                            <Text style={{ color: ability.lck > 0 ? "#7CFC00" : "#FF6B6B", fontSize: 10 }}>
+                              Lck: {ability.lck > 0 ? "+" : ""}
+                              {ability.lck}
+                            </Text>
+                          )}
+                          {ability.range != null && (
+                            <Text style={{ color: "#999", fontSize: 10 }}>Range: {ability.range}</Text>
+                          )}
+                          {ability.uses != null && (
+                            <Text style={{ color: "#999", fontSize: 10 }}>Uses: {ability.uses}</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
                     );
-                  })
-                )}
-              </View>
-              <View style={[styles.attackContainer, invalidFields.includes("ability2") && styles.invalidInput]}>
-                <DropDownPicker
-                  open={openAbility2}
-                  placeholder={weaponValue === null ? "Pick a weapon first" : "Ability 2"}
-                  style={{
-                    backgroundColor: "#D4B36C",
-                    borderColor: "#8C6A41",
-                  }}
-                  dropDownContainerStyle={{
-                    backgroundColor: "#3B2A1A",
-                    borderColor: "#8C6A41",
-                  }}
-                  placeholderStyle={{
-                    color: "black",
-                  }}
-                  labelStyle={{
-                    color: "#EBD9B4",
-                  }}
-                  listItemContainerStyle={{
-                    backgroundColor: "#3B2A1A",
-                  }}
-                  listItemLabelStyle={{
-                    color: "#EBD9B4",
-                  }}
-                  value={ability2}
-                  items={abilityOptions}
-                  setOpen={setOpenAbility2}
-                  setValue={setAbility2}
-                  onChangeValue={(val) => {
-                    if (val) {
-                      setInvalidFields((prev) => prev.filter((f) => f !== "ability2"));
-                    }
-                  }}
-                  zIndex={3000}
-                  zIndexInverse={1000}
-                  disabled={weaponValue === null}
-                  disabledItemLabelStyle={{ color: "gray" }}
-                />
-                {ability2 === null || !selectedAbilities.ability2 ? (
-                  <Text style={styles.attackTitle}>No ability selected</Text>
-                ) : (
-                  attackStats.map((stat, index) => {
-                    const value = selectedAbilities.ability2[stat.toLowerCase()] ?? 0;
-                    return (
-                      <View key={index} style={styles.statRow}>
-                        <Text style={styles.statsLabel}>{stat}:</Text>
-                        <Text style={styles.statsValue}>{value}</Text>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
+                  })}
+                </ScrollView>
+              )}
+              {invalidFields.includes("abilities") && (
+                <Text style={{ color: "#FF6B6B", fontSize: 12, textAlign: "center", marginTop: 3 }}>
+                  Pick 2 abilities
+                </Text>
+              )}
             </View>
           ) : statsView === "special" ? (
-            <View style={styles.statsWrapper}>
-              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ color: "#8C6A41", fontSize: 16, fontWeight: "600" }}>Special Moves</Text>
-                <Text style={{ color: "#6B4C2D", fontSize: 13, marginTop: 8 }}>Coming soon...</Text>
-              </View>
+            <View style={styles.specialMovesContainer}>
+              {weaponValue === null ? (
+                <Text style={{ color: "#999", fontSize: 14, textAlign: "center", marginTop: 20 }}>
+                  Pick a weapon first
+                </Text>
+              ) : (
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ paddingBottom: 6 }}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {specialMovesList.map((move) => {
+                    const isSelected = selectedSpecials.includes(move.name);
+                    const isFull = selectedSpecials.length >= 3 && !isSelected;
+                    return (
+                      <TouchableOpacity
+                        key={move.name}
+                        activeOpacity={isFull ? 1 : 0.7}
+                        onPress={() => !isFull && toggleSpecialMove(move.name)}
+                        style={{
+                          backgroundColor: isSelected ? "#4A6741" : "#3B2A1A",
+                          borderColor: isSelected ? "#7CFC00" : isFull ? "#555" : "#8C6A41",
+                          borderWidth: isSelected ? 2 : 1,
+                          borderRadius: 10,
+                          padding: 10,
+                          marginHorizontal: 6,
+                          marginVertical: 3,
+                          opacity: isFull ? 0.45 : 1,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text
+                            style={{
+                              color: isSelected ? "#7CFC00" : "#EBD9B4",
+                              fontSize: 15,
+                              fontWeight: "bold",
+                              flex: 1,
+                            }}
+                          >
+                            {isSelected ? "✓ " : ""}
+                            {move.name}
+                          </Text>
+                          <Text style={{ color: "#D4B36C", fontSize: 12, fontWeight: "bold" }}>{move.effect}</Text>
+                        </View>
+                        <Text style={{ color: isSelected ? "#C5E6C0" : "#A89272", fontSize: 11, marginTop: 3 }}>
+                          {move.description}
+                        </Text>
+                        <View style={{ flexDirection: "row", marginTop: 5, gap: 12 }}>
+                          <Text style={{ color: "#999", fontSize: 10 }}>Range: {move.range}</Text>
+                          <Text style={{ color: "#999", fontSize: 10 }}>Turns: {move.turns}</Text>
+                          <Text style={{ color: "#999", fontSize: 10 }}>Uses: {move.uses}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+              {invalidFields.includes("specials") && (
+                <Text style={{ color: "#FF6B6B", fontSize: 12, textAlign: "center", marginTop: 3 }}>Pick 3 moves</Text>
+              )}
             </View>
           ) : null}
           <TouchableOpacity style={styles.submitBtn} onPress={() => handleSubmit()}>
@@ -709,7 +762,7 @@ const styles = StyleSheet.create({
     width: "45%",
     backgroundColor: "#F5F0D5",
     color: "#3B2F1E",
-    padding: 10,
+    padding: 16,
     fontSize: 16,
     borderRadius: 8,
     top: "1%",
@@ -720,7 +773,7 @@ const styles = StyleSheet.create({
     width: "30%",
     backgroundColor: "#F5F0D5",
     color: "#3B2F1E",
-    padding: 10,
+    padding: 16,
     fontSize: 16,
     borderRadius: 8,
     top: "1%",
@@ -800,7 +853,7 @@ const styles = StyleSheet.create({
     left: "3%",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 16,
   },
   atkStatsBtn: {
     position: "absolute",
@@ -810,7 +863,7 @@ const styles = StyleSheet.create({
     left: "33%",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 16,
   },
   specialMovesBtn: {
     position: "absolute",
@@ -820,7 +873,7 @@ const styles = StyleSheet.create({
     left: "63%",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 16,
   },
   notPressed: {
     backgroundColor: "#C9A66B",
@@ -841,15 +894,15 @@ const styles = StyleSheet.create({
   statsWrapper: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 10,
+    padding: 16,
     width: "100%",
     position: "absolute",
     top: "40%",
   },
   baseStatsContainer: {
     backgroundColor: "#F5F0D5",
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 16,
+    padding: 16,
     flex: 1,
     marginRight: 5,
   },
@@ -892,8 +945,8 @@ const styles = StyleSheet.create({
   },
   weaponStatsContainer: {
     backgroundColor: "#F5F0D5",
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 16,
+    padding: 16,
     flex: 1,
     marginLeft: 5,
   },
@@ -916,34 +969,21 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 10,
   },
-  attackWrapper: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  attacksContainer: {
+    position: "absolute",
+    top: "42%",
+    bottom: "10%",
+    left: 0,
+    right: 0,
     paddingHorizontal: 10,
-    top: "15%",
   },
-  attackContainer: {
-    backgroundColor: "#F5F0D5",
-    borderRadius: 10,
-    padding: 12,
-    margin: 8,
-    width: "48%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  attackTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 6,
-    color: "#333",
-  },
-  attackText: {
-    fontSize: 14,
-    color: "#444",
-    marginVertical: 2,
+  specialMovesContainer: {
+    position: "absolute",
+    top: "42%",
+    bottom: "10%",
+    left: 0,
+    right: 0,
+    paddingHorizontal: 10,
   },
   submitBtn: {
     backgroundColor: "#D4B36C",

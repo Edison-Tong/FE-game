@@ -225,12 +225,13 @@ app.get("/get-characters", async (req, res) => {
 
 // create a character
 app.post("/create-character", async (req, res) => {
-  const { name, label, sizeValue, typeValue, moveAmount, weaponValue, baseStats, abilities, teamId } = req.body;
+  const { name, label, sizeValue, typeValue, moveAmount, weaponValue, baseStats, abilities, specialMoves, teamId } =
+    req.body;
   try {
     const types = await pool.query("SELECT type FROM characters WHERE team_id = $1", [teamId]);
 
     const newChar = await pool.query(
-      "INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)  RETURNING id, team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size",
+      "INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, special_move_1, special_move_2, special_move_3, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)  RETURNING id, team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, special_move_1, special_move_2, special_move_3, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size",
       [
         teamId,
         name,
@@ -240,6 +241,9 @@ app.post("/create-character", async (req, res) => {
         weaponValue,
         abilities[0],
         abilities[1],
+        (specialMoves && specialMoves[0]) || null,
+        (specialMoves && specialMoves[1]) || null,
+        (specialMoves && specialMoves[2]) || null,
         baseStats["Hlth"],
         baseStats["Str"],
         baseStats["Def"],
@@ -496,8 +500,8 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
     const charsResult = await pool.query("SELECT * FROM characters WHERE team_id = $1", [teamId]);
     for (const char of charsResult.rows) {
       await pool.query(
-        `INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        `INSERT INTO characters (team_id, name, label, type, move_value, base_weapon, weapon_ability1, weapon_ability2, health, strength, defense, magick, resistance, speed, skill, knowledge, luck, size, special_move_1, special_move_2, special_move_3)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
         [
           newTeamId,
           char.name,
@@ -517,6 +521,9 @@ app.post("/duplicate-team-for-battle", async (req, res) => {
           char.knowledge,
           char.luck,
           char.size,
+          char.special_move_1 || null,
+          char.special_move_2 || null,
+          char.special_move_3 || null,
         ]
       );
     }
