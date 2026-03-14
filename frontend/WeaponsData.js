@@ -792,4 +792,18 @@ export const weaponsData = {
     ],
     default: [],
   },
+
+  mageSpecialAbilities: {
+    fire: [],
+    water: [],
+    earth: [],
+    lightning: [],
+    grass: [],
+    aether: [],
+    wind: [],
+    light: [],
+    dark: [],
+    gray: [],
+    default: [],
+  },
 };

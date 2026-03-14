@@ -457,6 +457,16 @@ export default function CharCreation() {
               <Text>Attacks</Text>
             </View>
           </TouchableOpacity>
+          {typeValue === "mage" && (
+            <TouchableOpacity
+              style={[styles.specialMovesBtn, statsView === "special" ? styles.pressed : styles.notPressed]}
+              onPress={() => setStatsView("special")}
+            >
+              <View>
+                <Text style={{ fontSize: 11 }}>Special Moves</Text>
+              </View>
+            </TouchableOpacity>
+          )}
           {statsView === "base" ? (
             <View style={styles.statsWrapper}>
               <View style={styles.baseStatsContainer}>
@@ -653,6 +663,13 @@ export default function CharCreation() {
                 )}
               </View>
             </View>
+          ) : statsView === "special" ? (
+            <View style={styles.statsWrapper}>
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <Text style={{ color: "#8C6A41", fontSize: 16, fontWeight: "600" }}>Special Moves</Text>
+                <Text style={{ color: "#6B4C2D", fontSize: 13, marginTop: 8 }}>Coming soon...</Text>
+              </View>
+            </View>
           ) : null}
           <TouchableOpacity style={styles.submitBtn} onPress={() => handleSubmit()}>
             <Text>Submit</Text>
@@ -791,6 +808,16 @@ const styles = StyleSheet.create({
     width: "30%",
     top: "32%",
     left: "33%",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  specialMovesBtn: {
+    position: "absolute",
+    height: "5%",
+    width: "30%",
+    top: "32%",
+    left: "63%",
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
