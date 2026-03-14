@@ -204,15 +204,54 @@ export default function BattleScreen() {
   // height reserved for the confirm/cancel area inside battle modal (ignored when calculating thirds)
   const CONFIRM_AREA_HEIGHT = 80;
 
-  // Tile options for battle modal
-  const TILE_OPTIONS = [
-    { label: "Plain", value: "plain" },
+  // Terrain options for battle modal with stat multipliers
+  const TERRAIN_OPTIONS = [
+    { label: "Normal", value: "normal" },
+    { label: "Town", value: "town" },
+    { label: "Castle", value: "castle" },
     { label: "Forest", value: "forest" },
-    { label: "Mountain", value: "mountain" },
     { label: "Fort", value: "fort" },
-    { label: "River", value: "river" },
-    { label: "Sand", value: "sand" },
+    { label: "Water", value: "water" },
+    { label: "Desert", value: "desert" },
+    { label: "Mountain", value: "mountain" },
+    { label: "High Ground", value: "highground" },
   ];
+
+  // Terrain modifier definitions — multipliers applied to the character standing on that terrain
+  const TERRAIN_MODIFIERS = {
+    normal: {},
+    town: { defense: 1.1, accuracy: 0.85, evasion: 1.15 },
+    castle: { defense: 1.15, accuracy: 1.15, evasion: 1.15 },
+    forest: { evasion: 1.2 },
+    fort: { defense: 1.1, accuracy: 1.1, evasion: 1.15 },
+    water: { accuracy: 0.85, evasion: 0.85 },
+    desert: { accuracy: 0.8, evasion: 0.8 },
+    mountain: { accuracy: 1.15, evasion: 0.85 },
+    highground: { accuracy: 1.15 }, // also gives enemy 0.85x accuracy — handled separately
+  };
+  const CARRYING_MODIFIERS = { defense: 0.85, agility: 0.85 };
+
+  // Apply terrain + carrying modifiers to a stats object.
+  // enemyOnHighGround: if the opponent is on High Ground, this character gets 0.85x accuracy.
+  const applyTerrainModifiers = (stats, terrain, carrying, enemyOnHighGround) => {
+    const mods = TERRAIN_MODIFIERS[terrain] || {};
+    const protMeleeBase = stats.protection.melee;
+    const protMagicBase = stats.protection.magic;
+    const defMult = (mods.defense || 1) * (carrying ? CARRYING_MODIFIERS.defense : 1);
+    const accMult = (mods.accuracy || 1) * (enemyOnHighGround ? 0.85 : 1);
+    const evaMult = mods.evasion || 1;
+    const agiMult = carrying ? CARRYING_MODIFIERS.agility : 1;
+    return {
+      ...stats,
+      protection: {
+        melee: Math.round(protMeleeBase * defMult),
+        magic: Math.round(protMagicBase * defMult),
+      },
+      accuracy: Math.round(stats.accuracy * accMult),
+      evasion: Math.round(stats.evasion * evaMult),
+      agility: Math.round(stats.agility * agiMult),
+    };
+  };
 
   // Get special attacks for a character based on their specific chosen abilities
   const getSpecialAttacks = (character) => {
@@ -654,8 +693,10 @@ export default function BattleScreen() {
     const [computedDamage, setComputedDamage] = useState(0);
     const [computedCounterDamage, setComputedCounterDamage] = useState(0);
     const [computedSequence, setComputedSequence] = useState([]);
-    const [attackerTile, setAttackerTile] = useState(null);
-    const [defenderTile, setDefenderTile] = useState(null);
+    const [attackerTerrain, setAttackerTerrain] = useState(null);
+    const [defenderTerrain, setDefenderTerrain] = useState(null);
+    const [attackerCarrying, setAttackerCarrying] = useState(false);
+    const [defenderCarrying, setDefenderCarrying] = useState(false);
     const [selectedSpecialAttack, setSelectedSpecialAttack] = useState(null);
     const [middlePage, setMiddlePage] = useState(0);
     const [middleWidth, setMiddleWidth] = useState(0);
@@ -683,19 +724,52 @@ export default function BattleScreen() {
       return computeAllStats(mod);
     })();
 
-    // Helper: renders a stat value with an optional delta indicator when special attack is active
-    const StatWithDelta = ({ base, modified, label }) => {
+    // Apply terrain modifiers on top of special-attack-modified attacker stats
+    const atkStatsFinal =
+      attackerTerrain || attackerCarrying || defenderTerrain === "highground"
+        ? applyTerrainModifiers(
+            atkStatsWithSpecial,
+            attackerTerrain || "normal",
+            attackerCarrying,
+            defenderTerrain === "highground"
+          )
+        : atkStatsWithSpecial;
+
+    // Apply terrain modifiers to defender stats
+    const defStatsFinal =
+      defenderTerrain || defenderCarrying || attackerTerrain === "highground"
+        ? applyTerrainModifiers(
+            defStats,
+            defenderTerrain || "normal",
+            defenderCarrying,
+            attackerTerrain === "highground"
+          )
+        : defStats;
+
+    // Helper: renders a stat value with an optional delta indicator when special attack or terrain is active
+    const hasModifiers =
+      selectedSpecialAttack || attackerTerrain || defenderTerrain || attackerCarrying || defenderCarrying;
+    const StatWithDelta = ({ base, modified, suffix, flipColor }) => {
       const diff = modified - base;
-      if (diff === 0 || !selectedSpecialAttack) {
-        return <Text style={modalStyles.statValue}>{base}</Text>;
+      const sfx = suffix || "";
+      if (diff === 0 || !hasModifiers) {
+        return (
+          <Text style={modalStyles.statValue}>
+            {base}
+            {sfx}
+          </Text>
+        );
       }
+      const isPositive = flipColor ? diff < 0 : diff > 0;
       return (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Text style={[modalStyles.statValue, { color: "#888", textDecorationLine: "line-through", fontSize: 12 }]}>
             {base}
+            {sfx}
           </Text>
-          <Text style={{ color: diff > 0 ? "#4CAF50" : "#FF5252", fontWeight: "700", fontSize: 13, marginLeft: 4 }}>
+          <Text style={{ color: isPositive ? "#4CAF50" : "#FF5252", fontWeight: "700", fontSize: 13, marginLeft: 4 }}>
             {modified}
+            {sfx}
           </Text>
         </View>
       );
@@ -711,8 +785,10 @@ export default function BattleScreen() {
         setComputedDamage(0);
         setComputedCounterDamage(0);
         setComputedSequence([]);
-        setAttackerTile(null);
-        setDefenderTile(null);
+        setAttackerTerrain(null);
+        setDefenderTerrain(null);
+        setAttackerCarrying(false);
+        setDefenderCarrying(false);
         setSelectedSpecialAttack(null);
         setMiddlePage(0);
       }
@@ -734,10 +810,43 @@ export default function BattleScreen() {
                   {attacker.size != null ? attacker.size : attacker.sizeValue != null ? attacker.sizeValue : "N/A"}
                 </Text>
                 <View style={{ height: 8 }} />
-                <View style={{ marginBottom: 8 }}>
-                  {renderHealthBar(
-                    previewAttackerHealth != null ? { ...attacker, health: previewAttackerHealth } : attacker
-                  )}
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    {renderHealthBar(
+                      previewAttackerHealth != null ? { ...attacker, health: previewAttackerHealth } : attacker
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setAttackerCarrying((prev) => !prev)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginLeft: 10,
+                      backgroundColor: attackerCarrying ? "#3a3520" : "#2a2a2a",
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderColor: attackerCarrying ? "#C9A66B" : "#666",
+                        backgroundColor: attackerCarrying ? "#C9A66B" : "transparent",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginRight: 6,
+                      }}
+                    >
+                      {attackerCarrying && <Text style={{ color: "#1a1a2e", fontSize: 13, fontWeight: "800" }}>✓</Text>}
+                    </View>
+                    <Text style={{ color: attackerCarrying ? "#C9A66B" : "#bbb", fontSize: 12, fontWeight: "700" }}>
+                      Carrying
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -746,15 +855,15 @@ export default function BattleScreen() {
                       const atkIsMage = attacker.type && String(attacker.type).toLowerCase() === "mage";
                       const atkPowerLabel = atkIsMage ? "Power (Mag)" : "Power (Mel)";
                       const atkPowerVal = Number(atkStats.power || 0);
-                      const atkPowerMod = Number(atkStatsWithSpecial.power || 0);
+                      const atkPowerMod = Number(atkStatsFinal.power || 0);
                       const defenderIsMage = defender.type && String(defender.type).toLowerCase() === "mage";
                       const attackerDefProtLabel = defenderIsMage ? "Protection (Mag)" : "Protection (Mel)";
                       const attackerDefProtVal = defenderIsMage
                         ? Number(atkStats.protection.magic || 0)
                         : Number(atkStats.protection.melee || 0);
                       const attackerDefProtMod = defenderIsMage
-                        ? Number(atkStatsWithSpecial.protection.magic || 0)
-                        : Number(atkStatsWithSpecial.protection.melee || 0);
+                        ? Number(atkStatsFinal.protection.magic || 0)
+                        : Number(atkStatsFinal.protection.melee || 0);
                       return (
                         <>
                           <View style={modalStyles.statRow}>
@@ -767,7 +876,7 @@ export default function BattleScreen() {
                           </View>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>Evasion</Text>
-                            <StatWithDelta base={atkStats.evasion} modified={atkStatsWithSpecial.evasion} />
+                            <StatWithDelta base={atkStats.evasion} modified={atkStatsFinal.evasion} />
                           </View>
                         </>
                       );
@@ -777,19 +886,19 @@ export default function BattleScreen() {
                   <View style={{ flex: 1, paddingLeft: 8 }}>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Agility</Text>
-                      <StatWithDelta base={atkStats.agility} modified={atkStatsWithSpecial.agility} />
+                      <StatWithDelta base={atkStats.agility} modified={atkStatsFinal.agility} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Accuracy</Text>
-                      <StatWithDelta base={atkStats.accuracy} modified={atkStatsWithSpecial.accuracy} />
+                      <StatWithDelta base={atkStats.accuracy} modified={atkStatsFinal.accuracy} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Critical</Text>
-                      <StatWithDelta base={atkStats.critical} modified={atkStatsWithSpecial.critical} />
+                      <StatWithDelta base={atkStats.critical} modified={atkStatsFinal.critical} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Block</Text>
-                      <StatWithDelta base={atkStats.block} modified={atkStatsWithSpecial.block} />
+                      <StatWithDelta base={atkStats.block} modified={atkStatsFinal.block} />
                     </View>
                   </View>
                 </View>
@@ -844,43 +953,82 @@ export default function BattleScreen() {
                   {/* PAGE 0: Battle Stats */}
                   <View style={{ width: middleWidth || 300, paddingHorizontal: 12, justifyContent: "center" }}>
                     {(() => {
+                      // Use final (special + terrain) stats
+                      const effectiveAtkStats = atkStatsFinal;
+                      const effectiveDefStats = defStatsFinal;
                       const atkWeapon = getWeaponStats(attacker) || {};
                       const defWeapon = getWeaponStats(defender) || {};
-                      const baseHit = Number(atkWeapon["hit%"] || 0);
-                      const allyPower = Number(atkStats.power || 0);
+                      // Use special attack's hit% if selected, otherwise weapon's base hit%
+                      const saHitPct = selectedSpecialAttack
+                        ? Number(selectedSpecialAttack["hit%"] || atkWeapon["hit%"] || 0)
+                        : Number(atkWeapon["hit%"] || 0);
+                      const allyPower = Number(effectiveAtkStats.power || 0);
                       const enemyProt =
                         attacker.type && String(attacker.type).toLowerCase() === "mage"
-                          ? Number(defStats.protection.magic || 0)
-                          : Number(defStats.protection.melee || 0);
+                          ? Number(effectiveDefStats.protection.magic || 0)
+                          : Number(effectiveDefStats.protection.melee || 0);
                       const dmg = Math.max(0, Math.round(allyPower - enemyProt));
 
-                      const hitRaw = baseHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
+                      const hitRaw =
+                        saHitPct + (Number(effectiveAtkStats.accuracy || 0) - Number(effectiveDefStats.evasion || 0));
                       const hitPct = Math.max(0, Math.min(100, Math.round(hitRaw)));
 
                       const defLuck = (Number(defender.luck) || 0) + Number(defWeapon.lck || 0);
-                      const critRaw = Number(atkStats.critical || 0) - defLuck;
+                      const critRaw = Number(effectiveAtkStats.critical || 0) - defLuck;
                       const critPct = Math.max(0, Math.round(critRaw));
 
-                      const blkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
+                      const blkRaw = Number(effectiveDefStats.block || 0) - Number(effectiveAtkStats.accuracy || 0);
                       const blkPct = Math.max(0, Math.floor(blkRaw));
 
+                      // Defender -> Attacker (counter)
                       const defBaseHit = Number(defWeapon["hit%"] || 0);
-                      const defAllyPower = Number(defStats.power || 0);
+                      const defAllyPower = Number(effectiveDefStats.power || 0);
                       const enemyProtForDef =
+                        defender.type && String(defender.type).toLowerCase() === "mage"
+                          ? Number(effectiveAtkStats.protection.magic || 0)
+                          : Number(effectiveAtkStats.protection.melee || 0);
+                      const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
+
+                      const hitRawDef =
+                        defBaseHit + (Number(effectiveDefStats.accuracy || 0) - Number(effectiveAtkStats.evasion || 0));
+                      const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
+
+                      const atkLuck = (Number(attacker.luck) || 0) + Number(atkWeapon.lck || 0);
+                      const defCritRaw = Number(effectiveDefStats.critical || 0) - atkLuck;
+                      const critPctDef = Math.max(0, Math.round(defCritRaw));
+
+                      const blkRawDef = Number(effectiveAtkStats.block || 0) - Number(effectiveDefStats.accuracy || 0);
+                      const blkPctDef = Math.max(0, Math.floor(blkRawDef));
+
+                      // Base (no modifiers) battle outcome stats for delta comparison
+                      const baseWeaponHit = Number(atkWeapon["hit%"] || 0);
+                      const basePower = Number(atkStats.power || 0);
+                      const baseEnemyProt =
+                        attacker.type && String(attacker.type).toLowerCase() === "mage"
+                          ? Number(defStats.protection.magic || 0)
+                          : Number(defStats.protection.melee || 0);
+                      const baseDmg = Math.max(0, Math.round(basePower - baseEnemyProt));
+                      const baseHitRaw =
+                        baseWeaponHit + (Number(atkStats.accuracy || 0) - Number(defStats.evasion || 0));
+                      const baseHitPct = Math.max(0, Math.min(100, Math.round(baseHitRaw)));
+                      const baseCritRaw = Number(atkStats.critical || 0) - defLuck;
+                      const baseCritPct = Math.max(0, Math.round(baseCritRaw));
+                      const baseBlkRaw = Number(defStats.block || 0) - Number(atkStats.accuracy || 0);
+                      const baseBlkPct = Math.max(0, Math.floor(baseBlkRaw));
+
+                      const baseDefPower = Number(defStats.power || 0);
+                      const baseEnemyProtForDef =
                         defender.type && String(defender.type).toLowerCase() === "mage"
                           ? Number(atkStats.protection.magic || 0)
                           : Number(atkStats.protection.melee || 0);
-                      const dmgDef = Math.max(0, Math.round(defAllyPower - enemyProtForDef));
-
-                      const hitRawDef = defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
-                      const hitPctDef = Math.max(0, Math.min(100, Math.round(hitRawDef)));
-
-                      const defCritRaw =
-                        Number(defStats.critical || 0) - ((Number(attacker.luck) || 0) + Number(atkWeapon.lck || 0));
-                      const critPctDef = Math.max(0, Math.round(defCritRaw));
-
-                      const blkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
-                      const blkPctDef = Math.max(0, Math.floor(blkRawDef));
+                      const baseDmgDef = Math.max(0, Math.round(baseDefPower - baseEnemyProtForDef));
+                      const baseHitRawDef =
+                        defBaseHit + (Number(defStats.accuracy || 0) - Number(atkStats.evasion || 0));
+                      const baseHitPctDef = Math.max(0, Math.min(100, Math.round(baseHitRawDef)));
+                      const baseDefCritRaw = Number(defStats.critical || 0) - atkLuck;
+                      const baseCritPctDef = Math.max(0, Math.round(baseDefCritRaw));
+                      const baseBlkRawDef = Number(atkStats.block || 0) - Number(defStats.accuracy || 0);
+                      const baseBlkPctDef = Math.max(0, Math.floor(baseBlkRawDef));
 
                       return (
                         <>
@@ -893,19 +1041,19 @@ export default function BattleScreen() {
                               </Text>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>DMG</Text>
-                                <Text style={modalStyles.statValue}>{dmg}</Text>
+                                <StatWithDelta base={baseDmg} modified={dmg} />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Hit %</Text>
-                                <Text style={modalStyles.statValue}>{hitPct}%</Text>
+                                <StatWithDelta base={baseHitPct} modified={hitPct} suffix="%" />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Crit %</Text>
-                                <Text style={modalStyles.statValue}>{critPct}%</Text>
+                                <StatWithDelta base={baseCritPct} modified={critPct} suffix="%" />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Blk %</Text>
-                                <Text style={modalStyles.statValue}>{blkPct}%</Text>
+                                <StatWithDelta base={baseBlkPct} modified={blkPct} suffix="%" flipColor />
                               </View>
                             </View>
 
@@ -917,19 +1065,19 @@ export default function BattleScreen() {
                               </Text>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>DMG</Text>
-                                <Text style={modalStyles.statValue}>{dmgDef}</Text>
+                                <StatWithDelta base={baseDmgDef} modified={dmgDef} flipColor />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Hit %</Text>
-                                <Text style={modalStyles.statValue}>{hitPctDef}%</Text>
+                                <StatWithDelta base={baseHitPctDef} modified={hitPctDef} suffix="%" flipColor />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Crit %</Text>
-                                <Text style={modalStyles.statValue}>{critPctDef}%</Text>
+                                <StatWithDelta base={baseCritPctDef} modified={critPctDef} suffix="%" flipColor />
                               </View>
                               <View style={modalStyles.statRow}>
                                 <Text style={modalStyles.statLabel}>Blk %</Text>
-                                <Text style={modalStyles.statValue}>{blkPctDef}%</Text>
+                                <StatWithDelta base={baseBlkPctDef} modified={blkPctDef} suffix="%" />
                               </View>
                             </View>
                           </View>
@@ -1098,73 +1246,80 @@ export default function BattleScreen() {
                     })()}
                   </View>
 
-                  {/* PAGE 1: Tile Selection & Special Attack */}
-                  <View style={{ width: middleWidth || 300, paddingHorizontal: 12, justifyContent: "center" }}>
-                    {/* Attacker Tile */}
-                    <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6, fontSize: 13 }}>
-                      🔴 {attacker.name}'s Tile
-                    </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 10 }}>
-                      {TILE_OPTIONS.map((opt) => (
-                        <TouchableOpacity
-                          key={opt.value}
-                          onPress={() => setAttackerTile(opt.value)}
-                          style={{
-                            backgroundColor: attackerTile === opt.value ? "#C9A66B" : "#333",
-                            paddingVertical: 5,
-                            paddingHorizontal: 10,
-                            borderRadius: 6,
-                            marginRight: 6,
-                            marginBottom: 6,
-                            borderWidth: 1,
-                            borderColor: attackerTile === opt.value ? "#C9A66B" : "#555",
-                          }}
-                        >
-                          <Text
+                  {/* PAGE 1: Terrain Selection */}
+                  <View style={{ width: middleWidth || 300 }}>
+                    <ScrollView
+                      style={{ flex: 1 }}
+                      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={true}
+                    >
+                      {/* Attacker Terrain */}
+                      <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 4, fontSize: 13 }}>
+                        🔴 {attacker.name}'s Terrain
+                      </Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 6 }}>
+                        {TERRAIN_OPTIONS.map((opt) => (
+                          <TouchableOpacity
+                            key={opt.value}
+                            onPress={() => setAttackerTerrain(opt.value)}
                             style={{
-                              color: attackerTile === opt.value ? "#1a1a2e" : "#ccc",
-                              fontSize: 12,
-                              fontWeight: "600",
+                              backgroundColor: attackerTerrain === opt.value ? "#C9A66B" : "#333",
+                              paddingVertical: 4,
+                              paddingHorizontal: 9,
+                              borderRadius: 6,
+                              marginRight: 5,
+                              marginBottom: 5,
+                              borderWidth: 1,
+                              borderColor: attackerTerrain === opt.value ? "#C9A66B" : "#555",
                             }}
                           >
-                            {opt.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                            <Text
+                              style={{
+                                color: attackerTerrain === opt.value ? "#1a1a2e" : "#ccc",
+                                fontSize: 11,
+                                fontWeight: "600",
+                              }}
+                            >
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
 
-                    {/* Defender Tile */}
-                    <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6, fontSize: 13 }}>
-                      🔵 {defender.name}'s Tile
-                    </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 10 }}>
-                      {TILE_OPTIONS.map((opt) => (
-                        <TouchableOpacity
-                          key={opt.value}
-                          onPress={() => setDefenderTile(opt.value)}
-                          style={{
-                            backgroundColor: defenderTile === opt.value ? "#C9A66B" : "#333",
-                            paddingVertical: 5,
-                            paddingHorizontal: 10,
-                            borderRadius: 6,
-                            marginRight: 6,
-                            marginBottom: 6,
-                            borderWidth: 1,
-                            borderColor: defenderTile === opt.value ? "#C9A66B" : "#555",
-                          }}
-                        >
-                          <Text
+                      {/* Defender Terrain */}
+                      <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 4, fontSize: 13 }}>
+                        🔵 {defender.name}'s Terrain
+                      </Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 4 }}>
+                        {TERRAIN_OPTIONS.map((opt) => (
+                          <TouchableOpacity
+                            key={opt.value}
+                            onPress={() => setDefenderTerrain(opt.value)}
                             style={{
-                              color: defenderTile === opt.value ? "#1a1a2e" : "#ccc",
-                              fontSize: 12,
-                              fontWeight: "600",
+                              backgroundColor: defenderTerrain === opt.value ? "#C9A66B" : "#333",
+                              paddingVertical: 4,
+                              paddingHorizontal: 9,
+                              borderRadius: 6,
+                              marginRight: 5,
+                              marginBottom: 5,
+                              borderWidth: 1,
+                              borderColor: defenderTerrain === opt.value ? "#C9A66B" : "#555",
                             }}
                           >
-                            {opt.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                            <Text
+                              style={{
+                                color: defenderTerrain === opt.value ? "#1a1a2e" : "#ccc",
+                                fontSize: 11,
+                                fontWeight: "600",
+                              }}
+                            >
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
                   </View>
 
                   {/* PAGE 2: Special Attacks */}
@@ -1243,10 +1398,43 @@ export default function BattleScreen() {
                   {defender.label} • {defender.type} • size: {defender.size}
                 </Text>
                 <View style={{ height: 8 }} />
-                <View style={{ marginBottom: 8 }}>
-                  {renderHealthBar(
-                    previewDefenderHealth != null ? { ...defender, health: previewDefenderHealth } : defender
-                  )}
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    {renderHealthBar(
+                      previewDefenderHealth != null ? { ...defender, health: previewDefenderHealth } : defender
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setDefenderCarrying((prev) => !prev)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginLeft: 10,
+                      backgroundColor: defenderCarrying ? "#3a3520" : "#2a2a2a",
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderColor: defenderCarrying ? "#C9A66B" : "#666",
+                        backgroundColor: defenderCarrying ? "#C9A66B" : "transparent",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginRight: 6,
+                      }}
+                    >
+                      {defenderCarrying && <Text style={{ color: "#1a1a2e", fontSize: 13, fontWeight: "800" }}>✓</Text>}
+                    </View>
+                    <Text style={{ color: defenderCarrying ? "#C9A66B" : "#bbb", fontSize: 12, fontWeight: "700" }}>
+                      Carrying
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <Text style={{ color: "#C9A66B", fontWeight: "700", marginBottom: 6 }}>Advanced Stats</Text>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -1256,23 +1444,27 @@ export default function BattleScreen() {
                       const defIsMage = defender.type && String(defender.type).toLowerCase() === "mage";
                       const defPowerLabel = defIsMage ? "Power (Mag)" : "Power (Mel)";
                       const defPowerVal = Number(defStats.power || 0);
+                      const defPowerMod = Number(defStatsFinal.power || 0);
                       const defProtVal = atkIsMage
                         ? Number(defStats.protection.magic || 0)
                         : Number(defStats.protection.melee || 0);
+                      const defProtMod = atkIsMage
+                        ? Number(defStatsFinal.protection.magic || 0)
+                        : Number(defStatsFinal.protection.melee || 0);
                       const defProtLabel = atkIsMage ? "Protection (Mag)" : "Protection (Mel)";
                       return (
                         <>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>{defPowerLabel}</Text>
-                            <Text style={modalStyles.statValue}>{defPowerVal}</Text>
+                            <StatWithDelta base={defPowerVal} modified={defPowerMod} />
                           </View>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>{defProtLabel}</Text>
-                            <Text style={modalStyles.statValue}>{defProtVal}</Text>
+                            <StatWithDelta base={defProtVal} modified={defProtMod} />
                           </View>
                           <View style={modalStyles.statRow}>
                             <Text style={modalStyles.statLabel}>Evasion</Text>
-                            <Text style={modalStyles.statValue}>{defStats.evasion}</Text>
+                            <StatWithDelta base={defStats.evasion} modified={defStatsFinal.evasion} />
                           </View>
                         </>
                       );
@@ -1282,19 +1474,19 @@ export default function BattleScreen() {
                   <View style={{ flex: 1, paddingLeft: 8 }}>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Agility</Text>
-                      <Text style={modalStyles.statValue}>{defStats.agility}</Text>
+                      <StatWithDelta base={defStats.agility} modified={defStatsFinal.agility} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Accuracy</Text>
-                      <Text style={modalStyles.statValue}>{defStats.accuracy}</Text>
+                      <StatWithDelta base={defStats.accuracy} modified={defStatsFinal.accuracy} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Critical</Text>
-                      <Text style={modalStyles.statValue}>{defStats.critical}</Text>
+                      <StatWithDelta base={defStats.critical} modified={defStatsFinal.critical} />
                     </View>
                     <View style={modalStyles.statRow}>
                       <Text style={modalStyles.statLabel}>Block</Text>
-                      <Text style={modalStyles.statValue}>{defStats.block}</Text>
+                      <StatWithDelta base={defStats.block} modified={defStatsFinal.block} />
                     </View>
                   </View>
                 </View>
@@ -1355,10 +1547,10 @@ export default function BattleScreen() {
                 <TouchableOpacity
                   style={[styles.endTurnButton, { flex: 1 }]}
                   onPress={() => {
-                    if (!attackerTile || !defenderTile) {
+                    if (!attackerTerrain || !defenderTerrain) {
                       Alert.alert(
-                        "Tiles Required",
-                        "Please swipe to the Tiles page and select a tile for both the attacker and defender before confirming."
+                        "Terrain Required",
+                        "Please swipe to the Terrain page and select a terrain for both the attacker and defender before confirming."
                       );
                       return;
                     }
@@ -1367,9 +1559,9 @@ export default function BattleScreen() {
                       const previewEvents = [];
 
                       // Helper to compute one attack from src to tgt using src/target stats
-                      const computeHit = (src, srcStats, tgt, tgtStats) => {
+                      const computeHit = (src, srcStats, tgt, tgtStats, hitOverride) => {
                         const weapon = getWeaponStats(src) || {};
-                        const baseHit = Number(weapon["hit%"] || 0);
+                        const baseHit = hitOverride != null ? Number(hitOverride) : Number(weapon["hit%"] || 0);
                         const power = Number(srcStats.power || 0);
                         const prot =
                           src.type && String(src.type).toLowerCase() === "mage"
@@ -1394,8 +1586,9 @@ export default function BattleScreen() {
                         return { type: "hit", damage };
                       };
 
-                      // A1
-                      const a1 = computeHit(attacker, atkStats, defender, defStats);
+                      // A1 — use final (terrain+special) stats & hit% for attacker
+                      const saHit = selectedSpecialAttack ? Number(selectedSpecialAttack["hit%"] || 0) : null;
+                      const a1 = computeHit(attacker, atkStatsFinal, defender, defStatsFinal, saHit);
                       seq.push({ targetId: defender.id, damage: a1.damage, type: a1.type });
                       previewEvents.push(
                         a1.type === "hit"
@@ -1416,7 +1609,7 @@ export default function BattleScreen() {
                       }
 
                       // D1
-                      const d1 = computeHit(defender, defStats, attacker, atkStats);
+                      const d1 = computeHit(defender, defStatsFinal, attacker, atkStatsFinal);
                       seq.push({ targetId: attacker.id, damage: d1.damage, type: d1.type });
                       previewEvents.push(
                         d1.type === "hit"
@@ -1435,7 +1628,13 @@ export default function BattleScreen() {
                       }
 
                       // A2 (only if both alive)
-                      const a2 = computeHit(attacker, atkStats, { ...defender, health: defAfterA1 }, defStats);
+                      const a2 = computeHit(
+                        attacker,
+                        atkStatsFinal,
+                        { ...defender, health: defAfterA1 },
+                        defStatsFinal,
+                        saHit
+                      );
                       seq.push({ targetId: defender.id, damage: a2.damage, type: a2.type });
                       previewEvents.push(
                         a2.type === "hit"
@@ -1453,7 +1652,12 @@ export default function BattleScreen() {
                       }
 
                       // D2
-                      const d2 = computeHit(defender, defStats, { ...attacker, health: attAfterD1 }, atkStats);
+                      const d2 = computeHit(
+                        defender,
+                        defStatsFinal,
+                        { ...attacker, health: attAfterD1 },
+                        atkStatsFinal
+                      );
                       seq.push({ targetId: attacker.id, damage: d2.damage, type: d2.type });
                       previewEvents.push(
                         d2.type === "hit"
