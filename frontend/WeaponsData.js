@@ -92,7 +92,7 @@ export const weaponsData = {
       type: "magick",
       stats: { "hit%": 75, str: 0, def: 1, mgk: 3, res: 1, spd: 0, skl: 0, knl: 0, lck: 0, range: 1 },
     },
-    grey: {
+    gray: {
       label: "Gray",
       value: "gray",
       type: "magick",

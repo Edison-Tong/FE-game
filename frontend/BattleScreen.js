@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -73,6 +74,49 @@ export default function BattleScreen() {
     } catch (e) {
       return {};
     }
+  };
+
+  const WEAPON_TOKEN_GLYPHS = {
+    sword: "⚔️",
+    axe: "🪓",
+    dagger: "🗡️",
+    lance: "🔱",
+    bow: "🏹",
+    gauntlets: "🥊",
+    fire: "🔥",
+    water: "💧",
+    earth: "🪨",
+    lightning: "⚡",
+    grass: "🌿",
+    aether: "✨",
+    wind: "🌪️",
+    light: "☀️",
+    dark: "🌑",
+    gray: "🌫️",
+  };
+
+  const getCharacterImageUri = (character) => {
+    if (!character) return null;
+    const candidates = [
+      character.character_image,
+      character.char_image,
+      character.image,
+      character.image_uri,
+      character.image_url,
+      character.avatar,
+      character.avatar_url,
+      character.portrait,
+      character.portrait_url,
+      character.photo_url,
+    ];
+
+    const first = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
+    return first ? first.trim() : null;
+  };
+
+  const getWeaponTokenGlyph = (character) => {
+    const key = String(character?.base_weapon || "").toLowerCase();
+    return WEAPON_TOKEN_GLYPHS[key] || "⚔️";
   };
 
   const BOARD_ROWS = 6;
@@ -167,7 +211,7 @@ export default function BattleScreen() {
     } else if (wepKey === "dark") {
       wepPowerMult = 1.25;
       wepProtMult = 1.25;
-    } else if (wepKey === "gauntlets" || wepKey === "grey" || wepKey === "gray") {
+    } else if (wepKey === "gauntlets" || wepKey === "gray") {
       wepLuckMult = 1.5;
     }
 
@@ -232,7 +276,7 @@ export default function BattleScreen() {
       wepEvasionMult = 1.25;
     } else if (wepKey === "light") {
       wepAccuracyMult = 1.25;
-    } else if (wepKey === "gauntlets" || wepKey === "grey" || wepKey === "gray") {
+    } else if (wepKey === "gauntlets" || wepKey === "gray") {
       wepLuckMult = 1.5;
     }
 
@@ -1979,7 +2023,11 @@ export default function BattleScreen() {
                     >
                       {occupant ? (
                         <View style={[styles.boardPiece, isMine ? styles.boardPieceMine : styles.boardPieceEnemy]}>
-                          <Text style={styles.boardPieceText}>{String(occupant.name || "?").charAt(0)}</Text>
+                          {getCharacterImageUri(occupant) ? (
+                            <Image source={{ uri: getCharacterImageUri(occupant) }} style={styles.boardPieceImage} />
+                          ) : (
+                            <Text style={styles.boardPieceWeaponGlyph}>{getWeaponTokenGlyph(occupant)}</Text>
+                          )}
                         </View>
                       ) : null}
                     </TouchableOpacity>
@@ -2325,6 +2373,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
   boardPieceMine: {
     backgroundColor: "#D9534F",
@@ -2336,6 +2385,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontWeight: "700",
+  },
+  boardPieceImage: {
+    width: "100%",
+    height: "100%",
+  },
+  boardPieceWeaponGlyph: {
+    fontSize: 12,
+    lineHeight: 14,
   },
   bottomSpacer: {
     height: 80,
