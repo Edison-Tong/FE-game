@@ -16,7 +16,11 @@ import { weaponsData } from "./WeaponsData";
 
 export default function BattleScreen() {
   const route = useRoute();
-  const { userId, roomId } = route.params || {};
+  const { userId, roomId, battleMode } = route.params || {};
+  const [resolvedBattleMode, setResolvedBattleMode] = useState(
+    String(battleMode || "board").toLowerCase() === "board" ? "board" : "companion"
+  );
+  const isBoardMode = resolvedBattleMode === "board";
   const [currentTurnUserId, setCurrentTurnUserId] = useState(null);
   const [isEndingTurn, setIsEndingTurn] = useState(false);
   const [teams, setTeams] = useState([]);
@@ -33,10 +37,33 @@ export default function BattleScreen() {
   const [battleDefenderId, setBattleDefenderId] = useState(null);
   const [isPerformingAttack, setIsPerformingAttack] = useState(false);
   const [battleResults, setBattleResults] = useState(null);
+  const [boardPositions, setBoardPositions] = useState({});
   const pollRef = useRef(null);
   const battleModalAttackerRef = useRef(null);
   const battleModalDefenderRef = useRef(null);
   const statModalCharRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const syncRoomMode = async () => {
+      if (!roomId) return;
+      try {
+        const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted || !data) return;
+        const nextMode = String(data.mode || battleMode || "board").toLowerCase() === "board" ? "board" : "companion";
+        setResolvedBattleMode(nextMode);
+      } catch (e) {
+        // Keep route-provided mode on network errors.
+      }
+    };
+
+    syncRoomMode();
+    return () => {
+      mounted = false;
+    };
+  }, [roomId, battleMode]);
 
   // helper: weapon lookup
   const getWeaponStats = (character) => {
@@ -46,6 +73,25 @@ export default function BattleScreen() {
     } catch (e) {
       return {};
     }
+  };
+
+  const BOARD_ROWS = 6;
+  const BOARD_COLS = 8;
+  const boardCellKey = (r, c) => `${r}:${c}`;
+  const parseBoardCellKey = (key) => {
+    const [r, c] = String(key || "")
+      .split(":")
+      .map((n) => Number(n));
+    return { r, c };
+  };
+  const getAttackRange = (character) => {
+    const weapon = getWeaponStats(character) || {};
+    return Math.max(1, Number(weapon.range) || 1);
+  };
+  const isInAttackRange = (fromPos, toPos, range) => {
+    if (!fromPos || !toPos) return false;
+    const dist = Math.abs(fromPos.r - toPos.r) + Math.abs(fromPos.c - toPos.c);
+    return dist > 0 && dist <= range;
   };
 
   // Consolidated stats computation: power, protection, and advanced stats
@@ -487,6 +533,10 @@ export default function BattleScreen() {
         const res = await fetch(`${BACKEND_URL}/battle-state?roomId=${roomId}`);
         if (!res.ok) return;
         const data = await res.json();
+        if (data && data.mode) {
+          const nextMode = String(data.mode).toLowerCase() === "board" ? "board" : "companion";
+          setResolvedBattleMode(nextMode);
+        }
         setCurrentTurnUserId(data.currentTurnUserId || null);
         setAttacked(data.attacked || {});
         setTeams(data.teams || []);
@@ -554,6 +604,49 @@ export default function BattleScreen() {
     }
   }, [currentTurnUserId, userId]);
 
+  useEffect(() => {
+    if (!isBoardMode) return;
+    if (!teams || teams.length < 2) return;
+
+    const myTeam = teams.find((t) => String(t.user_id) === String(userId));
+    const oppTeam = teams.find((t) => String(t.user_id) !== String(userId));
+    if (!myTeam || !oppTeam) return;
+
+    setBoardPositions((prev) => {
+      const next = { ...(prev || {}) };
+      let changed = false;
+
+      const myChars = (myTeam.characters || []).filter((c) => Number(c.health || 0) > 0);
+      const oppChars = (oppTeam.characters || []).filter((c) => Number(c.health || 0) > 0);
+
+      myChars.forEach((ch, idx) => {
+        if (next[ch.id]) return;
+        const row = idx < BOARD_COLS ? BOARD_ROWS - 1 : BOARD_ROWS - 2;
+        const col = idx % BOARD_COLS;
+        next[ch.id] = { r: row, c: col };
+        changed = true;
+      });
+
+      oppChars.forEach((ch, idx) => {
+        if (next[ch.id]) return;
+        const row = idx < BOARD_COLS ? 0 : 1;
+        const col = idx % BOARD_COLS;
+        next[ch.id] = { r: row, c: col };
+        changed = true;
+      });
+
+      const aliveIds = new Set([...myChars, ...oppChars].map((c) => String(c.id)));
+      Object.keys(next).forEach((id) => {
+        if (!aliveIds.has(String(id))) {
+          delete next[id];
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [isBoardMode, teams, userId]);
+
   let turnText = "Waiting...";
   if (currentTurnUserId) turnText = currentTurnUserId === userId ? "It is your turn" : "It is your opponent's turn";
 
@@ -571,6 +664,57 @@ export default function BattleScreen() {
   if (currentTurnUserId) {
     turnText = currentTurnUserId === userId ? "It is your turn" : "It is your opponent's turn";
   }
+
+  const openBattleModalWith = (attackerObj, defenderObj) => {
+    if (!attackerObj || !defenderObj) return;
+    battleModalAttackerRef.current = attackerObj;
+    battleModalDefenderRef.current = defenderObj;
+    setBattleAttackerId(attackerObj ? attackerObj.id : null);
+    setBattleDefenderId(defenderObj.id);
+    setBattleResults(null);
+    setBattleModalVisible(true);
+  };
+
+  const handleBoardCellPress = (charObj) => {
+    if (!charObj) return;
+    const myTeam = teams.find((t) => String(t.user_id) === String(userId));
+    const isMine = !!(myTeam && (myTeam.characters || []).some((c) => String(c.id) === String(charObj.id)));
+    const isDead = Number(charObj.health || 0) <= 0;
+    if (isDead) return;
+
+    if (isMine) {
+      const effectiveAttacked = { ...(attacked || {}), ...(localAttackedOverrides || {}) };
+      const hasAttacked = !!effectiveAttacked[charObj.id];
+      if (currentTurnUserId === userId && !hasAttacked) {
+        setSelectedAttackerId(charObj.id);
+        return;
+      }
+      openStatModal(charObj);
+      return;
+    }
+
+    if (!selectedAttackerId || currentTurnUserId !== userId) {
+      openStatModal(charObj);
+      return;
+    }
+
+    const attackerObj = myTeam
+      ? (myTeam.characters || []).find((ch) => String(ch.id) === String(selectedAttackerId))
+      : null;
+    if (!attackerObj) return;
+
+    if (isBoardMode) {
+      const fromPos = boardPositions[attackerObj.id];
+      const toPos = boardPositions[charObj.id];
+      const range = getAttackRange(attackerObj);
+      if (!isInAttackRange(fromPos, toPos, range)) {
+        Alert.alert("Out of Range", `Target is out of range. This unit can hit up to ${range} tile(s).`);
+        return;
+      }
+    }
+
+    openBattleModalWith(attackerObj, charObj);
+  };
 
   // Local modal components so they can access computeAllStats, computeAdvancedStats, renderHealthBar
   const LocalStatModal = ({ visible, character, onClose }) => {
@@ -1803,110 +1947,160 @@ export default function BattleScreen() {
       <View style={styles.turnBanner}>
         <Text style={styles.turnText}>{turnText}</Text>
       </View>
-      {/* Player's characters shown at top half (always visible). Disabled when not player's turn. */}
-      <View style={styles.playerArea}>
-        <Text style={styles.caption}>
-          {currentTurnUserId === userId ? "Select a character to attack" : "Your characters"}
-        </Text>
-        <View style={styles.charactersRow}>
-          {(() => {
-            const myTeam = teams.find((t) => String(t.user_id) === String(userId));
-            if (!myTeam || !myTeam.characters) return <Text style={styles.noChars}>No characters</Text>;
-            // render my team using preserved order if available
-            const teamKey = String(myTeam.id);
-            const order = teamOrder[teamKey] || myTeam.characters.map((c) => c.id);
-            const charsById = {};
-            myTeam.characters.forEach((c) => (charsById[c.id] = c));
-            const ordered = order.map((id) => charsById[id]).filter(Boolean);
-            const missing = myTeam.characters.filter((c) => !order.includes(c.id));
-            const finalList = [...ordered, ...missing];
-            return finalList.map((c) => {
-              const effectiveAttacked = { ...(attacked || {}), ...(localAttackedOverrides || {}) };
-              const hasAttacked = effectiveAttacked && effectiveAttacked[c.id];
-              const isSelected = selectedAttackerId === c.id && currentTurnUserId === userId;
-              const isDead = (c.health || 0) <= 0;
-              const canSelect = !hasAttacked && currentTurnUserId === userId && !isDead;
-              return (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[
-                    styles.charCard,
-                    hasAttacked || isDead ? styles.charCardDisabled : null,
-                    isSelected ? styles.charCardSelected : null,
-                  ]}
-                  onPress={() => {
-                    if (canSelect) setSelectedAttackerId(c.id);
-                  }}
-                  onLongPress={() => openStatModal(c)}
-                >
-                  <Text style={styles.charName}>{c.name || `Char ${c.id}`}</Text>
-                  {renderHealthBar(c)}
-                  <Text style={styles.weaponType}>{((c.base_weapon || "").toString() || "").toUpperCase()}</Text>
-                  {isDead && <Text style={styles.charKO}>KO</Text>}
-                </TouchableOpacity>
-              );
-            });
-          })()}
-        </View>
-      </View>
+      {isBoardMode ? (
+        <View style={styles.boardPanel}>
+          <View style={styles.boardHeaderRow}>
+            <Text style={styles.boardTitle}>Board</Text>
+            <Text style={styles.boardHint}>Tap units to select and target.</Text>
+          </View>
+          <View style={styles.boardGrid}>
+            {Array.from({ length: BOARD_ROWS }).map((_, r) => (
+              <View key={`r-${r}`} style={styles.boardRow}>
+                {Array.from({ length: BOARD_COLS }).map((__, c) => {
+                  const occupant = Object.values(teams)
+                    .flatMap((t) => t.characters || [])
+                    .find((ch) => {
+                      const pos = boardPositions[ch.id];
+                      return pos && pos.r === r && pos.c === c;
+                    });
+                  const myTeam = teams.find((t) => String(t.user_id) === String(userId));
+                  const isMine =
+                    !!occupant &&
+                    !!(myTeam && (myTeam.characters || []).some((ch) => String(ch.id) === String(occupant.id)));
+                  const isSelected = !!occupant && selectedAttackerId === occupant.id;
+                  const terrainTone = (r + c) % 2 === 0 ? styles.boardTileLight : styles.boardTileDark;
 
-      {/* Opponent area at bottom half */}
-      <View style={styles.opponentArea}>
-        <Text style={styles.caption}>Select the character you are attacking</Text>
-        <View style={styles.charactersRow}>
-          {(() => {
-            const opponentTeam = teams.find((t) => String(t.user_id) !== String(userId));
-            if (!opponentTeam || !opponentTeam.characters) return <Text style={styles.noChars}>No opponent</Text>;
-            // render opponent characters using preserved order if available
-            const teamKey = String(opponentTeam.id);
-            const order = teamOrder[teamKey] || opponentTeam.characters.map((c) => c.id);
-            const charsById = {};
-            opponentTeam.characters.forEach((c) => (charsById[c.id] = c));
-            const ordered = order.map((id) => charsById[id]).filter(Boolean);
-            // append any characters not present in the stored order
-            const missing = opponentTeam.characters.filter((c) => !order.includes(c.id));
-            const finalList = [...ordered, ...missing];
-            return finalList.map((c) => {
-              const isDead = (c.health || 0) <= 0;
-              const canBeTargeted = currentTurnUserId === userId && selectedAttackerId && !isDead;
-              return (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.charCard, isDead ? styles.charCardDisabled : null]}
-                  onPress={() => {
-                    if (!canBeTargeted) return;
-                    // if an attacker is selected, open the Battle Modal instead of immediate attack
-                    if (selectedAttackerId) {
-                      // find attacker object
-                      const myTeam = teams.find((t) => String(t.user_id) === String(userId));
-                      const attackerObj = myTeam
-                        ? myTeam.characters.find((ch) => String(ch.id) === String(selectedAttackerId))
-                        : null;
-                      // Store the full character objects in refs so they persist across polling updates
-                      battleModalAttackerRef.current = attackerObj;
-                      battleModalDefenderRef.current = c;
-                      setBattleAttackerId(attackerObj ? attackerObj.id : null);
-                      setBattleDefenderId(c.id);
-                      // Clear previous battle results so old damage isn't shown
-                      setBattleResults(null);
-                      // previously reset parent confirm state here; now handled locally in modal
-                      setBattleModalVisible(true);
-                      return;
-                    }
-                  }}
-                  onLongPress={() => openStatModal(c)}
-                >
-                  <Text style={styles.charName}>{c.name || `Char ${c.id}`}</Text>
-                  {renderHealthBar(c)}
-                  <Text style={styles.weaponType}>{((c.base_weapon || "").toString() || "").toUpperCase()}</Text>
-                  {isDead && <Text style={styles.charKO}>KO</Text>}
-                </TouchableOpacity>
-              );
-            });
-          })()}
+                  return (
+                    <TouchableOpacity
+                      key={boardCellKey(r, c)}
+                      style={[styles.boardTile, terrainTone, isSelected ? styles.boardTileSelected : null]}
+                      onPress={() => handleBoardCellPress(occupant)}
+                      activeOpacity={0.8}
+                    >
+                      {occupant ? (
+                        <View style={[styles.boardPiece, isMine ? styles.boardPieceMine : styles.boardPieceEnemy]}>
+                          <Text style={styles.boardPieceText}>{String(occupant.name || "?").charAt(0)}</Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-      <View style={styles.bottomSpacer} />
+      ) : (
+        <>
+          {/* Player's characters shown at top half (always visible). Disabled when not player's turn. */}
+          <View style={styles.playerArea}>
+            <Text style={styles.caption}>
+              {currentTurnUserId === userId ? "Select a character to attack" : "Your characters"}
+            </Text>
+            <View style={styles.charactersRow}>
+              {(() => {
+                const myTeam = teams.find((t) => String(t.user_id) === String(userId));
+                if (!myTeam || !myTeam.characters) return <Text style={styles.noChars}>No characters</Text>;
+                // render my team using preserved order if available
+                const teamKey = String(myTeam.id);
+                const order = teamOrder[teamKey] || myTeam.characters.map((c) => c.id);
+                const charsById = {};
+                myTeam.characters.forEach((c) => (charsById[c.id] = c));
+                const ordered = order.map((id) => charsById[id]).filter(Boolean);
+                const missing = myTeam.characters.filter((c) => !order.includes(c.id));
+                const finalList = [...ordered, ...missing];
+                return finalList.map((c) => {
+                  const effectiveAttacked = { ...(attacked || {}), ...(localAttackedOverrides || {}) };
+                  const hasAttacked = effectiveAttacked && effectiveAttacked[c.id];
+                  const isSelected = selectedAttackerId === c.id && currentTurnUserId === userId;
+                  const isDead = (c.health || 0) <= 0;
+                  const canSelect = !hasAttacked && currentTurnUserId === userId && !isDead;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.charCard,
+                        hasAttacked || isDead ? styles.charCardDisabled : null,
+                        isSelected ? styles.charCardSelected : null,
+                      ]}
+                      onPress={() => {
+                        if (canSelect) setSelectedAttackerId(c.id);
+                      }}
+                      onLongPress={() => openStatModal(c)}
+                    >
+                      <Text style={styles.charName}>{c.name || `Char ${c.id}`}</Text>
+                      {renderHealthBar(c)}
+                      <Text style={styles.weaponType}>{((c.base_weapon || "").toString() || "").toUpperCase()}</Text>
+                      {isDead && <Text style={styles.charKO}>KO</Text>}
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
+            </View>
+          </View>
+
+          {/* Opponent area at bottom half */}
+          <View style={styles.opponentArea}>
+            <Text style={styles.caption}>Select the character you are attacking</Text>
+            <View style={styles.charactersRow}>
+              {(() => {
+                const opponentTeam = teams.find((t) => String(t.user_id) !== String(userId));
+                if (!opponentTeam || !opponentTeam.characters) return <Text style={styles.noChars}>No opponent</Text>;
+                // render opponent characters using preserved order if available
+                const teamKey = String(opponentTeam.id);
+                const order = teamOrder[teamKey] || opponentTeam.characters.map((c) => c.id);
+                const charsById = {};
+                opponentTeam.characters.forEach((c) => (charsById[c.id] = c));
+                const ordered = order.map((id) => charsById[id]).filter(Boolean);
+                // append any characters not present in the stored order
+                const missing = opponentTeam.characters.filter((c) => !order.includes(c.id));
+                const finalList = [...ordered, ...missing];
+                return finalList.map((c) => {
+                  const isDead = (c.health || 0) <= 0;
+                  const canBeTargeted = currentTurnUserId === userId && selectedAttackerId && !isDead;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.charCard, isDead ? styles.charCardDisabled : null]}
+                      onPress={() => {
+                        if (!canBeTargeted) return;
+                        // if an attacker is selected, open the Battle Modal instead of immediate attack
+                        if (selectedAttackerId) {
+                          // find attacker object
+                          const myTeam = teams.find((t) => String(t.user_id) === String(userId));
+                          const attackerObj = myTeam
+                            ? myTeam.characters.find((ch) => String(ch.id) === String(selectedAttackerId))
+                            : null;
+                          if (isBoardMode && attackerObj) {
+                            const fromPos = boardPositions[attackerObj.id];
+                            const toPos = boardPositions[c.id];
+                            const range = getAttackRange(attackerObj);
+                            if (!isInAttackRange(fromPos, toPos, range)) {
+                              Alert.alert(
+                                "Out of Range",
+                                `Target is out of range. This unit can hit up to ${range} tile(s).`
+                              );
+                              return;
+                            }
+                          }
+                          openBattleModalWith(attackerObj, c);
+                          return;
+                        }
+                      }}
+                      onLongPress={() => openStatModal(c)}
+                    >
+                      <Text style={styles.charName}>{c.name || `Char ${c.id}`}</Text>
+                      {renderHealthBar(c)}
+                      <Text style={styles.weaponType}>{((c.base_weapon || "").toString() || "").toUpperCase()}</Text>
+                      {isDead && <Text style={styles.charKO}>KO</Text>}
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
+            </View>
+          </View>
+          <View style={styles.bottomSpacer} />
+        </>
+      )}
 
       <TouchableOpacity
         style={[styles.endTurnButton, currentTurnUserId !== userId ? styles.endTurnButtonDisabled : null]}
@@ -2074,6 +2268,73 @@ const styles = StyleSheet.create({
   turnText: {
     color: "#FFD700",
     fontSize: 16,
+    fontWeight: "700",
+  },
+  boardPanel: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: "#1F1F1F",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#3C3C3C",
+    padding: 8,
+  },
+  boardHeaderRow: {
+    marginBottom: 6,
+  },
+  boardTitle: {
+    color: "#D4B36C",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  boardHint: {
+    color: "#A9A9A9",
+    fontSize: 11,
+    marginTop: 2,
+  },
+  boardGrid: {
+    alignSelf: "center",
+  },
+  boardRow: {
+    flexDirection: "row",
+  },
+  boardTile: {
+    width: 34,
+    height: 34,
+    margin: 1,
+    borderRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#383838",
+  },
+  boardTileLight: {
+    backgroundColor: "#5E7D52",
+  },
+  boardTileDark: {
+    backgroundColor: "#4F6845",
+  },
+  boardTileSelected: {
+    borderColor: "#FFD700",
+    borderWidth: 2,
+  },
+  boardPiece: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  boardPieceMine: {
+    backgroundColor: "#D9534F",
+  },
+  boardPieceEnemy: {
+    backgroundColor: "#4A90E2",
+  },
+  boardPieceText: {
+    color: "#fff",
+    fontSize: 12,
     fontWeight: "700",
   },
   bottomSpacer: {

@@ -21,6 +21,8 @@ app.get("/ping", (req, res) => {
 // In-memory ready state for rooms (roomId -> { host_ready: bool, joiner_ready: bool })
 // Note: ephemeral; restarts will clear this. For production, persist in DB.
 const roomReadyStates = {};
+// In-memory room mode chosen by host (roomId -> "board" | "companion")
+const roomModes = {};
 
 // In-memory battle state per room
 // Structure: {
@@ -317,10 +319,12 @@ app.get("/get-finished-teams", async (req, res) => {
 
 // Start hosting a game
 app.post("/create-room", async (req, res) => {
-  const { userId } = req.body;
+  const { userId, mode } = req.body;
+  const normalizedMode = String(mode || "companion").toLowerCase() === "board" ? "board" : "companion";
 
-  // Generate 4-character code
-  const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+  // Generate 4-character code with mode prefix so mode can be recovered even after restart.
+  const codePrefix = normalizedMode === "board" ? "B" : "C";
+  const code = `${codePrefix}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
 
   try {
     const result = await pool.query(
@@ -330,10 +334,13 @@ app.post("/create-room", async (req, res) => {
       [userId, code]
     );
 
+    roomModes[result.rows[0].id] = normalizedMode;
+
     res.json({
       message: "Room created",
       roomId: result.rows[0].id,
       code: result.rows[0].code,
+      mode: normalizedMode,
     });
   } catch (err) {
     console.error("Error creating room:", err);
@@ -366,6 +373,13 @@ app.post("/join-room", async (req, res) => {
       message: "Joined room",
       roomId: room.id,
       hostId: room.host_id,
+      mode:
+        roomModes[room.id] ||
+        (String(room.code || "")
+          .toUpperCase()
+          .startsWith("B")
+          ? "board"
+          : "companion"),
     });
   } catch (err) {
     console.error("Error joining room:", err);
@@ -378,13 +392,21 @@ app.get("/room-status", async (req, res) => {
   const { roomId } = req.query;
 
   try {
-    const result = await pool.query("SELECT host_id, joiner_id FROM rooms WHERE id = $1", [roomId]);
+    const result = await pool.query("SELECT host_id, joiner_id, code FROM rooms WHERE id = $1", [roomId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Room not found" });
     }
 
-    res.json(result.rows[0]);
+    const row = result.rows[0];
+    const inferredMode =
+      roomModes[roomId] ||
+      (String(row.code || "")
+        .toUpperCase()
+        .startsWith("B")
+        ? "board"
+        : "companion");
+    res.json({ host_id: row.host_id, joiner_id: row.joiner_id, mode: inferredMode });
   } catch (err) {
     console.error("Error checking room status:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -402,6 +424,7 @@ app.delete("/delete-room", async (req, res) => {
   try {
     // Remove room from database
     await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
+    delete roomModes[roomId];
 
     // Delete only battle copy teams and their characters for this room
     const battleTeams = await pool.query("SELECT id FROM teams WHERE room_id = $1", [roomId]);
@@ -624,6 +647,16 @@ app.get("/battle-state", async (req, res) => {
     const state = battleStates[roomId];
     if (!state || !state.active) return res.status(404).json({ message: "Battle not found" });
 
+    const roomRes = await pool.query("SELECT code FROM rooms WHERE id = $1", [roomId]);
+    const roomCode = roomRes.rows[0] ? roomRes.rows[0].code : "";
+    const mode =
+      roomModes[roomId] ||
+      (String(roomCode || "")
+        .toUpperCase()
+        .startsWith("B")
+        ? "board"
+        : "companion");
+
     // Return fresh characters for both teams
     const teamsResult = await pool.query("SELECT id, user_id, team_name FROM teams WHERE room_id = $1", [roomId]);
     const teams = [];
@@ -632,7 +665,7 @@ app.get("/battle-state", async (req, res) => {
       teams.push({ id: t.id, user_id: t.user_id, team_name: t.team_name, characters: charsRes.rows });
     }
 
-    return res.json({ currentTurnUserId: state.currentTurnUserId, attacked: state.attacked, teams });
+    return res.json({ currentTurnUserId: state.currentTurnUserId, attacked: state.attacked, teams, mode });
   } catch (err) {
     console.error("Error fetching battle state:", err);
     return res.status(500).json({ message: "Internal server error" });

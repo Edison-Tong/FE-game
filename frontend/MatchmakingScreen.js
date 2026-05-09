@@ -10,6 +10,7 @@ import { BACKEND_URL } from "@env";
 export default function MatchmakingScreen() {
   const route = useRoute();
   const { hostId, joinerId, userId, roomId, hostBattleTeamId, battleTeamId, joinerBattleTeamId } = route.params;
+  const [battleMode, setBattleMode] = useState((route.params && route.params.battleMode) || "board");
   const [myTeam, setMyTeam] = useState([]);
   const [myTeamName, setMyTeamName] = useState("My Team");
   const [opponentTeam, setOpponentTeam] = useState([]);
@@ -169,6 +170,10 @@ export default function MatchmakingScreen() {
             }
             return;
           }
+          try {
+            const statusJson = await res.json();
+            if (statusJson && statusJson.mode) setBattleMode(statusJson.mode);
+          } catch (e) {}
 
           const oppId = oppBattleTeamIdRef.current;
           if (oppId) {
@@ -248,7 +253,20 @@ export default function MatchmakingScreen() {
 
   // Navigate once to the BattleScreen when the server signals the battle started
   useEffect(() => {
-    if (battleStarted && !navigatedToBattle.current) {
+    if (!battleStarted || navigatedToBattle.current) return;
+
+    const goToBattle = async () => {
+      let modeToUse = battleMode;
+      try {
+        const res = await fetch(`${BACKEND_URL}/room-status?roomId=${roomId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.mode) modeToUse = data.mode;
+        }
+      } catch (e) {
+        // fallback to local mode state
+      }
+
       navigatedToBattle.current = true;
       navigation.replace("BattleScreen", {
         hostId,
@@ -258,9 +276,12 @@ export default function MatchmakingScreen() {
         hostBattleTeamId,
         battleTeamId,
         joinerBattleTeamId,
+        battleMode: modeToUse,
       });
-    }
-  }, [battleStarted]);
+    };
+
+    goToBattle();
+  }, [battleStarted, battleMode, roomId]);
 
   const fetchBattleState = async () => {
     if (!roomId) return;

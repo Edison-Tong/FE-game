@@ -92,7 +92,7 @@ export default function GameLobby() {
       const res = await fetch(`${BACKEND_URL}/create-room`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, teamId: selectedTeam }),
+        body: JSON.stringify({ userId: user.id, teamId: selectedTeam, mode: "board" }),
       });
 
       const data = await res.json();
@@ -143,6 +143,7 @@ export default function GameLobby() {
           joinerId: data.joiner_id,
           userId: user.id,
           hostBattleTeamId,
+          battleMode: "board",
           // joinerBattleTeamId, // Uncomment and set if available
         });
       }
@@ -266,6 +267,7 @@ export default function GameLobby() {
           joinerId: user.id,
           userId: user.id,
           battleTeamId,
+          battleMode: "board",
         });
       } else {
         alert(data.message);
