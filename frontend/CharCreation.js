@@ -475,12 +475,12 @@ export default function CharCreation() {
           {statsView === "base" ? (
             <View style={styles.statsWrapper}>
               <View style={styles.baseStatsContainer}>
-                <Text style={styles.statsTitle}>
-                  Base Stats{" "}
+                <View style={styles.statsTitleRow}>
+                  <Text style={styles.statsTitle}>Base Stats</Text>
                   <Text style={[styles.statsTotal, (statsTotal === 70 && styles.statsMax) || styles.statsRemaining]}>
                     {statsTotal}/70
                   </Text>
-                </Text>
+                </View>
                 {Object.entries(baseStats).map(([label, value]) => (
                   <View key={label} style={styles.statRow}>
                     <Text style={styles.statsLabel}>{label}</Text>
@@ -909,10 +909,18 @@ const styles = StyleSheet.create({
   statsTitle: {
     fontSize: 18,
     fontWeight: "bold",
+  },
+  statsTitleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
     marginBottom: 10,
   },
   statsTotal: {
     fontSize: 15,
+    marginLeft: 8,
+    minWidth: 50,
+    textAlign: "left",
+    fontVariant: ["tabular-nums"],
   },
   statsMax: {
     color: "red",

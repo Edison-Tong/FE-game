@@ -253,14 +253,46 @@ export default function BattleScreen() {
     };
   };
 
-  // Get special attacks for a character based on their specific chosen abilities
+  // Get special attacks for a character based on their specific chosen abilities.
+  // Returns both weapon abilities and (for mages) selected mage special moves.
   const getSpecialAttacks = (character) => {
     if (!character) return [];
     const wepKey = (character.base_weapon || "").toLowerCase();
+
     const allAbilities = (weaponsData.weaponAbilities && weaponsData.weaponAbilities[wepKey]) || [];
     const charAbilityNames = [character.weapon_ability1, character.weapon_ability2].filter(Boolean);
-    if (charAbilityNames.length === 0) return allAbilities;
-    return allAbilities.filter((a) => charAbilityNames.includes(a.name));
+    const selectedWeaponAbilities =
+      charAbilityNames.length === 0 ? allAbilities : allAbilities.filter((a) => charAbilityNames.includes(a.name));
+
+    const weaponAbilityOptions = selectedWeaponAbilities.map((a) => ({
+      ...a,
+      attackKind: "weapon-ability",
+      attackGroupLabel: "Weapon Abilities",
+    }));
+
+    const isMage = String(character.type || "").toLowerCase() === "mage";
+    if (!isMage) return weaponAbilityOptions;
+
+    const allMageMoves = (weaponsData.mageSpecialAbilities && weaponsData.mageSpecialAbilities[wepKey]) || [];
+    const selectedMageMoveNames = [
+      character.special_move_1,
+      character.special_move_2,
+      character.special_move_3,
+      character.special_move1,
+      character.special_move2,
+      character.special_move3,
+    ].filter(Boolean);
+
+    const selectedMageMoves =
+      selectedMageMoveNames.length === 0 ? [] : allMageMoves.filter((m) => selectedMageMoveNames.includes(m.name));
+
+    const mageSpecialMoveOptions = selectedMageMoves.map((m) => ({
+      ...m,
+      attackKind: "mage-special",
+      attackGroupLabel: "Mage Special Moves",
+    }));
+
+    return [...weaponAbilityOptions, ...mageSpecialMoveOptions];
   };
 
   const renderHealthBar = (character) => {
@@ -1358,34 +1390,112 @@ export default function BattleScreen() {
                           None (Normal Attack)
                         </Text>
                       </TouchableOpacity>
-                      {getSpecialAttacks(attacker).map((atk, idx) => {
-                        const isSelected = selectedSpecialAttack && selectedSpecialAttack.name === atk.name;
-                        return (
-                          <TouchableOpacity
-                            key={idx}
-                            onPress={() => setSelectedSpecialAttack(atk)}
-                            style={{
-                              backgroundColor: isSelected ? "#C9A66B" : "#333",
-                              paddingVertical: 8,
-                              paddingHorizontal: 12,
-                              borderRadius: 6,
-                              marginBottom: 6,
-                              borderWidth: 1,
-                              borderColor: isSelected ? "#C9A66B" : "#555",
-                            }}
-                          >
-                            <Text style={{ color: isSelected ? "#1a1a2e" : "#ccc", fontSize: 13, fontWeight: "600" }}>
-                              {atk.name}
-                            </Text>
-                            <Text
-                              style={{ color: isSelected ? "#333" : "#888", fontSize: 11, marginTop: 2 }}
-                              numberOfLines={2}
-                            >
-                              {atk.effect}
-                            </Text>
-                          </TouchableOpacity>
+                      {(() => {
+                        const allSpecialAttacks = getSpecialAttacks(attacker);
+                        const weaponAbilityAttacks = allSpecialAttacks.filter(
+                          (atk) => atk.attackKind !== "mage-special"
                         );
-                      })}
+                        const mageSpecialAttacks = allSpecialAttacks.filter((atk) => atk.attackKind === "mage-special");
+                        return (
+                          <>
+                            {weaponAbilityAttacks.map((atk, idx) => {
+                              const isSelected =
+                                selectedSpecialAttack &&
+                                selectedSpecialAttack.name === atk.name &&
+                                selectedSpecialAttack.attackKind === atk.attackKind;
+                              return (
+                                <TouchableOpacity
+                                  key={`${atk.attackKind}-${atk.name}-${idx}`}
+                                  onPress={() => setSelectedSpecialAttack(atk)}
+                                  style={{
+                                    backgroundColor: isSelected ? "#C9A66B" : "#333",
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 6,
+                                    marginBottom: 6,
+                                    borderWidth: 1,
+                                    borderColor: isSelected ? "#C9A66B" : "#555",
+                                  }}
+                                >
+                                  <Text
+                                    style={{ color: isSelected ? "#1a1a2e" : "#ccc", fontSize: 13, fontWeight: "600" }}
+                                  >
+                                    {atk.name}
+                                  </Text>
+                                  <Text
+                                    style={{ color: isSelected ? "#333" : "#888", fontSize: 11, marginTop: 2 }}
+                                    numberOfLines={2}
+                                  >
+                                    {atk.effect}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+
+                            {mageSpecialAttacks.length > 0 && (
+                              <View
+                                style={{
+                                  marginTop: 8,
+                                  marginBottom: 6,
+                                  paddingTop: 8,
+                                  borderTopWidth: 1,
+                                  borderTopColor: "#555",
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: "#9FD3FF",
+                                    fontSize: 12,
+                                    fontWeight: "700",
+                                    marginBottom: 6,
+                                    textTransform: "uppercase",
+                                  }}
+                                >
+                                  Mage Special Moves
+                                </Text>
+                              </View>
+                            )}
+
+                            {mageSpecialAttacks.map((atk, idx) => {
+                              const isSelected =
+                                selectedSpecialAttack &&
+                                selectedSpecialAttack.name === atk.name &&
+                                selectedSpecialAttack.attackKind === atk.attackKind;
+                              return (
+                                <TouchableOpacity
+                                  key={`${atk.attackKind}-${atk.name}-${idx}`}
+                                  onPress={() => setSelectedSpecialAttack(atk)}
+                                  style={{
+                                    backgroundColor: isSelected ? "#7EB6E6" : "#2d3440",
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 6,
+                                    marginBottom: 6,
+                                    borderWidth: 1,
+                                    borderColor: isSelected ? "#9FD3FF" : "#4b5d73",
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: isSelected ? "#0f1d2b" : "#d6e8f9",
+                                      fontSize: 13,
+                                      fontWeight: "600",
+                                    }}
+                                  >
+                                    {atk.name}
+                                  </Text>
+                                  <Text
+                                    style={{ color: isSelected ? "#183047" : "#9ab2c9", fontSize: 11, marginTop: 2 }}
+                                    numberOfLines={2}
+                                  >
+                                    {atk.description || atk.effect}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </ScrollView>
                   </View>
                 </ScrollView>
@@ -1587,7 +1697,9 @@ export default function BattleScreen() {
                       };
 
                       // A1 — use final (terrain+special) stats & hit% for attacker
-                      const saHit = selectedSpecialAttack ? Number(selectedSpecialAttack["hit%"] || 0) : null;
+                      const saHit = selectedSpecialAttack
+                        ? Number(selectedSpecialAttack["hit%"] || getWeaponStats(attacker)["hit%"] || 0)
+                        : null;
                       const a1 = computeHit(attacker, atkStatsFinal, defender, defStatsFinal, saHit);
                       seq.push({ targetId: defender.id, damage: a1.damage, type: a1.type });
                       previewEvents.push(
